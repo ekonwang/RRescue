@@ -42,36 +42,29 @@ def smart_tokenizer_and_embedding_resize(
 
 def _tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
     """Tokenize a list of strings."""
-    tokenized_list = [
-        tokenizer(
-            text,
+    if isinstance(strings, list):
+        tokenized_list = [
+            tokenizer(
+                text,
+                return_tensors="pt",
+                padding="longest",
+                max_length=tokenizer.model_max_length,
+                truncation=True,
+            )
+            for text in strings
+        ]
+        input_ids = [tokenized.input_ids[0] for tokenized in tokenized_list]
+        return input_ids
+    else:
+        tokenized = tokenizer(
+            strings,
             return_tensors="pt",
             padding="longest",
             max_length=tokenizer.model_max_length,
             truncation=True,
         )
-        for text in strings
-    ]
-    input_ids = labels = [tokenized.input_ids[0] for tokenized in tokenized_list]
-    input_ids_lens = labels_lens = [
-        tokenized.input_ids.ne(tokenizer.pad_token_id).sum().item() for tokenized in tokenized_list
-    ]
-    return dict(
-        input_ids=input_ids,
-        labels=labels,
-        input_ids_lens=input_ids_lens,
-        labels_lens=labels_lens,
-    )
-
-
-def preprocess(
-    sources,
-    targets,
-    tokenizer: transformers.PreTrainedTokenizer,
-):
-    sources_tokenized = _tokenize_fn(sources, tokenizer)
-    input_ids = sources_tokenized["input_ids"]
-    return dict(input_ids=input_ids, labels=copy.deepcopy(input_ids))
+        input_ids = tokenized.input_ids[0]
+        return input_ids
 
 
 class SupervisedDataset(Dataset):
@@ -80,19 +73,30 @@ class SupervisedDataset(Dataset):
     def __init__(self, data_path: str, tokenizer: transformers.PreTrainedTokenizer):
         super(SupervisedDataset, self).__init__()
 
-        dataset_for_eval = load_dataset(data_path)['train']
-        sources = [item['prompt'] for item in dataset_for_eval]
-        targets = [item['chosen'] for item in dataset_for_eval]
-        data_dict = preprocess(sources, targets, tokenizer)
-
-        self.input_ids = data_dict["input_ids"] + data_dict["input_ids"][-50:]
-        self.labels = data_dict["labels"] + data_dict["labels"][-50:]
+        self.dataset_for_eval = load_dataset(data_path)['train']
+        self.data_path = data_path
+        self.tokenizer = tokenizer
+        self.input_ids = []
+        
+        for item in self.dataset_for_eval:
+            if self.data_path == 'Dahoas/rm-static':
+                source = item['prompt']
+            elif data_path == 'esnli':
+                premise = item['premise']
+                hypothesis = item['hypothesis']
+                source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
+                f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
+                f'"The answer is <answer>. <explaination>".'
+            self.input_ids.append(_tokenize_fn(source))
+        else:
+            raise NotImplementedError()
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
+
 
 def padding(inputs, padding_token, cutoff = None):
     num_elems = len(inputs)
