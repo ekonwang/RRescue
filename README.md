@@ -4,9 +4,11 @@
 
 ## 数据增强
 
-- []  SNLI 数据生成 (Jun23 - Jun25)
-    - [x]  模型 Alpaca-lora-7B 或者更小的 Flan-T5 模型(可能不行因为无法对话)
-    - []  基于 beam search 生成若干回答。
-    - [] A40 单机单卡测试
+- [ ]  SNLI 数据生成 (Jun23 - Jun25)
+    - [x] 模型 Alpaca-lora-7B 或者更小的 Flan-T5 模型(可能不行因为无法对话).
+    - [ ] `response_gen` 模块修改.
+    - [ ] A40 单机单卡测试, 基于 beam search 生成若干回答.
+    - [ ] `scoring_responses` 模块修改，加入 SBERT.
+    - [ ] 测试 `data_generation` 模块.
 
-- []  训练 pipeline (Jun25 - Jun26)
+- [ ]  训练 pipeline (Jun26 - Jun27)
