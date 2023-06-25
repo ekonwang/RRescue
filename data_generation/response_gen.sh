@@ -1,6 +1,6 @@
 export MASTER_ADDR=localhost
 export MASTER_PORT=7834
-export CUDA_VISIBLE_DEVICES="3,4"
+export CUDA_VISIBLE_DEVICES="0"
 MODEL_DIR=$1
 OUT_DIR=$2
 mkdir -p $OUT_DIR

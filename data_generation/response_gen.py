@@ -174,9 +174,9 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, dat
 
 
 def main(rank, args):
-
-    dist.init_process_group("nccl")
     world_size = torch.cuda.device_count()
+    if world_size > 1:
+        dist.init_process_group("nccl")
     base_model = args.base_model
     data_path = args.data_path
     batch_size = args.batch_size
@@ -221,7 +221,10 @@ def main(rank, args):
 
     eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path)
     
-    sampler = torch.utils.data.distributed.DistributedSampler(eval_dataset, num_replicas=world_size, rank=rank, shuffle=False)
+    if world_size > 1:
+        sampler = torch.utils.data.distributed.DistributedSampler(eval_dataset, num_replicas=world_size, rank=rank, shuffle=False)
+    else:
+        sampler = None
     dataloader = DataLoader(
         eval_dataset, 
         shuffle=False, 
@@ -251,12 +254,17 @@ def main(rank, args):
                 return_dict_in_generate=True,
             )
         s = generation_output.sequences
-        gather_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
-        gathered_inputs = sequence_gather(input_ids, world_size, tokenizer.pad_token_id)
-        gather_outputs = torch.stack(gather_outputs).reshape(world_size, batch_size,args.diverse_beam,-1)
-        gathered_inputs = torch.stack(gathered_inputs)
-        gather_outputs = gather_outputs.transpose(0,1).reshape(batch_size*world_size*args.diverse_beam, -1)
-        gathered_inputs = gathered_inputs.transpose(0,1).reshape(batch_size*world_size,-1)
+        
+        if world_size > 1:
+            gather_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
+            gathered_inputs = sequence_gather(input_ids, world_size, tokenizer.pad_token_id)
+            gather_outputs = torch.stack(gather_outputs).reshape(world_size, batch_size,args.diverse_beam,-1)
+            gathered_inputs = torch.stack(gathered_inputs)
+            gather_outputs = gather_outputs.transpose(0,1).reshape(batch_size*world_size*args.diverse_beam, -1)
+            gathered_inputs = gathered_inputs.transpose(0,1).reshape(batch_size*world_size,-1)
+        else:
+            gather_outputs = s.reshape(batch_size*world_size*args.diverse_beam, -1)
+            gathered_inputs = s.reshape(batch_size*world_size,-1)
         outputs_string = tokenizer.batch_decode(gather_outputs, skip_special_tokens=True)
         inputs_string = tokenizer.batch_decode(gathered_inputs, skip_special_tokens=True)
         
