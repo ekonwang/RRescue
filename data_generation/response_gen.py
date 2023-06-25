@@ -87,7 +87,7 @@ class SupervisedDataset(Dataset):
         #         source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
         #         f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
         #         f'"The answer is <answer>. <explaination>".'
-        #     self.input_ids.append(_tokenize_fn(source))
+        #     self.input_ids.append(_tokenize_fn(source, self.tokenizer))
         # else:
         #     raise NotImplementedError()
 
@@ -108,7 +108,7 @@ class SupervisedDataset(Dataset):
             '”The answer is <answer>. <explaination>”.'
         else:
             raise NotImplementedError()
-        return dict(input_ids=_tokenize_fn(source), id=i)
+        return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
 
 
 def padding(inputs, padding_token, cutoff = None):
@@ -164,6 +164,7 @@ class DataCollatorForSupervisedDataset(object):
             if proto_key == 'input_ids':
                 attention_mask = results[proto_key].ne(self.tokenizer.pad_token_id)
                 results['attention_mask'] = attention_mask
+        return results
         
 
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, data_path) -> Dict:
@@ -180,6 +181,11 @@ def main(rank, args):
     base_model = args.base_model
     data_path = args.data_path
     batch_size = args.batch_size
+    
+    print(f'{data_path} loading..')
+    tokenizer = LlamaTokenizer.from_pretrained(base_model)
+    eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path)
+    print(f'{data_path} load completed!!')
 
     print(f'{base_model} loading..')
     if 'pytorch_model.bin' not in base_model:
@@ -197,8 +203,6 @@ def main(rank, args):
         model.load_state_dict(ckpt_state, strict=False)
     print(f'{base_model} load completed!!')
     
-    tokenizer = LlamaTokenizer.from_pretrained(base_model)
-
     if tokenizer.pad_token is None:
         smart_tokenizer_and_embedding_resize(
             special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
@@ -221,10 +225,6 @@ def main(rank, args):
         model = DDP(model, device_ids=[torch.cuda.current_device()])
     model.eval()
 
-    print(f'{data_path} loading..')
-    eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path)
-    print(f'{data_path} load completed!!')
-    
     if world_size > 1:
         sampler = torch.utils.data.distributed.DistributedSampler(eval_dataset, num_replicas=world_size, rank=rank, shuffle=False)
     else:
@@ -251,7 +251,11 @@ def main(rank, args):
         input_ids = batch['input_ids'].to(model.device)
         attention_mask = batch['attention_mask'].to(model.device)
         with torch.no_grad():
-            generation_output = model.module.generate(
+            if world_size > 1:
+                generation_model = model.module 
+            else:
+                generation_model = model 
+            generation_output = generation_model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 generation_config=generation_config,
@@ -268,7 +272,7 @@ def main(rank, args):
             gathered_inputs = gathered_inputs.transpose(0,1).reshape(batch_size*world_size,-1)
         else:
             gather_outputs = s.reshape(batch_size*world_size*args.diverse_beam, -1)
-            gathered_inputs = s.reshape(batch_size*world_size,-1)
+            gathered_inputs = input_ids.reshape(batch_size*world_size,-1)
         outputs_string = tokenizer.batch_decode(gather_outputs, skip_special_tokens=True)
         inputs_string = tokenizer.batch_decode(gathered_inputs, skip_special_tokens=True)
         
@@ -277,12 +281,14 @@ def main(rank, args):
             for i in range(args.diverse_beam):
                 temp.append([inputs_string[idx], outputs_string[args.diverse_beam*idx+i].replace(inputs_string[idx], '')])
             all_outputs.append(temp)
+        if step == 3:
+            break
 
     if rank == 0:
         import json
-        with open(args.out_path + '/raw_generation.json', 'w') as f:
+        with open(args.out_path + f'/raw_generation.json', 'w') as f:
             for item in all_outputs:
-                f.write(json.dumps(item) + '\n')
+                f.write(json.dumps(item, indent=4) + '\n')
  
 
 if __name__ == "__main__":

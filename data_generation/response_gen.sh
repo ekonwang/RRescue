@@ -3,10 +3,12 @@ export MASTER_PORT=7834
 export CUDA_VISIBLE_DEVICES="0"
 MODEL_DIR=$1
 OUT_DIR=$2
+# DATA="Dahoas/rm-static"
+DATA="esnli"
 mkdir -p $OUT_DIR
 torchrun --nproc_per_node 1 --master_port 7834 response_gen.py \
                         --base_model $MODEL_DIR \
-                        --data_path "Dahoas/rm-static" \
+                        --data_path $DATA \
                         --out_path $OUT_DIR \
                         --diverse_beam 4 \
                         --batch_size 4
