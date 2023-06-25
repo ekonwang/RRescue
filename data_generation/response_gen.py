@@ -95,7 +95,7 @@ class SupervisedDataset(Dataset):
         return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
+        return dict(input_ids=self.input_ids[i], id=i)
 
 
 def padding(inputs, padding_token, cutoff = None):
