@@ -78,24 +78,37 @@ class SupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.input_ids = []
         
-        for item in self.dataset_for_eval:
-            if self.data_path == 'Dahoas/rm-static':
-                source = item['prompt']
-            elif data_path == 'esnli':
-                premise = item['premise']
-                hypothesis = item['hypothesis']
-                source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
-                'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
-                '”The answer is <answer>. <explaination>”.'
-            self.input_ids.append(_tokenize_fn(source))
-        else:
-            raise NotImplementedError()
+        # for item in self.dataset_for_eval:
+        #     if self.data_path == 'Dahoas/rm-static':
+        #         source = item['prompt']
+        #     elif data_path == 'esnli':
+        #         premise = item['premise']
+        #         hypothesis = item['hypothesis']
+        #         source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
+        #         'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
+        #         '”The answer is <answer>. <explaination>”.'
+        #     else:
+        #         raise NotImplementedError()
+        #     self.input_ids.append(_tokenize_fn(source))
 
     def __len__(self):
         return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
+        # return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
+        
+        item = self.dataset_for_eval[i]
+        if self.data_path == 'Dahoas/rm-static':
+            source = item['prompt']
+        elif self.data_path == 'esnli':
+            premise = item['premise']
+            hypothesis = item['hypothesis']
+            source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
+            'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
+            '”The answer is <answer>. <explaination>”.'
+        else:
+            raise NotImplementedError()
+        return _tokenize_fn(source)
 
 
 def padding(inputs, padding_token, cutoff = None):
@@ -202,6 +215,7 @@ def main(rank, args):
 
     torch.cuda.set_device(rank)
     model.to(torch.cuda.current_device())
+    # half precision in inference.
     model = DDP(model, device_ids=[torch.cuda.current_device()])
     model.eval()
 

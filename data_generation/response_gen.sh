@@ -4,7 +4,7 @@ export CUDA_VISIBLE_DEVICES="3,4"
 MODEL_DIR=$1
 OUT_DIR=$2
 mkdir -p $OUT_DIR
-torchrun --nproc_per_node 2 --master_port 7834 response_gen.py \
+torchrun --nproc_per_node 1 --master_port 7834 response_gen.py \
                         --base_model $MODEL_DIR \
                         --data_path "Dahoas/rm-static" \
                         --out_path $OUT_DIR \
