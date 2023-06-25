@@ -42,36 +42,29 @@ def smart_tokenizer_and_embedding_resize(
 
 def _tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
     """Tokenize a list of strings."""
-    tokenized_list = [
-        tokenizer(
-            text,
+    if isinstance(strings, list):
+        tokenized_list = [
+            tokenizer(
+                text,
+                return_tensors="pt",
+                padding="longest",
+                max_length=tokenizer.model_max_length,
+                truncation=True,
+            )
+            for text in strings
+        ]
+        input_ids = [tokenized.input_ids[0] for tokenized in tokenized_list]
+        return input_ids
+    else:
+        tokenized = tokenizer(
+            strings,
             return_tensors="pt",
             padding="longest",
             max_length=tokenizer.model_max_length,
             truncation=True,
         )
-        for text in strings
-    ]
-    input_ids = labels = [tokenized.input_ids[0] for tokenized in tokenized_list]
-    input_ids_lens = labels_lens = [
-        tokenized.input_ids.ne(tokenizer.pad_token_id).sum().item() for tokenized in tokenized_list
-    ]
-    return dict(
-        input_ids=input_ids,
-        labels=labels,
-        input_ids_lens=input_ids_lens,
-        labels_lens=labels_lens,
-    )
-
-
-def preprocess(
-    sources,
-    targets,
-    tokenizer: transformers.PreTrainedTokenizer,
-):
-    sources_tokenized = _tokenize_fn(sources, tokenizer)
-    input_ids = sources_tokenized["input_ids"]
-    return dict(input_ids=input_ids, labels=copy.deepcopy(input_ids))
+        input_ids = tokenized.input_ids[0]
+        return input_ids
 
 
 class SupervisedDataset(Dataset):
@@ -80,19 +73,30 @@ class SupervisedDataset(Dataset):
     def __init__(self, data_path: str, tokenizer: transformers.PreTrainedTokenizer):
         super(SupervisedDataset, self).__init__()
 
-        dataset_for_eval = load_dataset(data_path)['train']
-        sources = [item['prompt'] for item in dataset_for_eval]
-        targets = [item['chosen'] for item in dataset_for_eval]
-        data_dict = preprocess(sources, targets, tokenizer)
-
-        self.input_ids = data_dict["input_ids"] + data_dict["input_ids"][-50:]
-        self.labels = data_dict["labels"] + data_dict["labels"][-50:]
+        self.dataset_for_eval = load_dataset(data_path)['train']
+        self.data_path = data_path
+        self.tokenizer = tokenizer
+        self.input_ids = []
+        
+        for item in self.dataset_for_eval:
+            if self.data_path == 'Dahoas/rm-static':
+                source = item['prompt']
+            elif data_path == 'esnli':
+                premise = item['premise']
+                hypothesis = item['hypothesis']
+                source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
+                'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
+                '”The answer is <answer>. <explaination>”.'
+            self.input_ids.append(_tokenize_fn(source))
+        else:
+            raise NotImplementedError()
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
+
 
 def padding(inputs, padding_token, cutoff = None):
     num_elems = len(inputs)
@@ -127,17 +131,27 @@ class DataCollatorForSupervisedDataset(object):
     tokenizer: transformers.PreTrainedTokenizer
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
-        input_ids, labels, ids = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels", 'id'))
-        input_ids = padding(input_ids, self.tokenizer.pad_token_id, cutoff = 256)
-        labels = padding(labels, IGNORE_INDEX, cutoff = 256)
-
-        return dict(
-            input_ids=input_ids,
-            labels=labels,
-            id=torch.tensor(ids).to(input_ids.device),
-            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
-        )
-
+        results = dict()
+        proto = instances[0]
+        proto_keys = list(proto.keys())
+        
+        for proto_key in proto_keys:
+            value_list = list()
+            for instance in instances:
+                value = instance[proto_key]
+                value_list.append(value)
+            if isinstance(value, torch.Tensor):
+                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256)
+            elif isinstance(value, int) or isinstance(value, float):
+                results[proto_key] = torch.tensor(value_list)
+            elif isinstance(value, str):
+                results[proto_key] = value_list 
+            else:
+                raise NotImplementedError()
+            if proto_key == 'input_ids':
+                attention_mask = results[proto_key].ne(self.tokenizer.pad_token_id)
+                results['attention_mask'] = attention_mask
+        
 
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, data_path) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
@@ -203,12 +217,12 @@ def main(rank, args):
     )
     generation_config = GenerationConfig(
         temperature=0.8,
-        num_beam_groups=4,
+        num_beam_groups=args.diverse_beam,
         diversity_penalty=1.0,
-        num_beams=4,
+        num_beams=args.diverse_beam,
         min_length=1,
         max_new_tokens=128,
-        num_return_sequences=4,
+        num_return_sequences=args.diverse_beam,
 
     )
     all_outputs = []
@@ -225,17 +239,17 @@ def main(rank, args):
         s = generation_output.sequences
         gather_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
         gathered_inputs = sequence_gather(input_ids, world_size, tokenizer.pad_token_id)
-        gather_outputs = torch.stack(gather_outputs).reshape(world_size, batch_size,4,-1)
+        gather_outputs = torch.stack(gather_outputs).reshape(world_size, batch_size,args.diverse_beam,-1)
         gathered_inputs = torch.stack(gathered_inputs)
-        gather_outputs = gather_outputs.transpose(0,1).reshape(batch_size*world_size*4, -1)
+        gather_outputs = gather_outputs.transpose(0,1).reshape(batch_size*world_size*args.diverse_beam, -1)
         gathered_inputs = gathered_inputs.transpose(0,1).reshape(batch_size*world_size,-1)
         outputs_string = tokenizer.batch_decode(gather_outputs, skip_special_tokens=True)
         inputs_string = tokenizer.batch_decode(gathered_inputs, skip_special_tokens=True)
         
         for idx in range(len(inputs_string)):
             temp = []
-            for i in range(4):
-                temp.append([inputs_string[idx], outputs_string[4*idx+i].replace(inputs_string[idx], '')])
+            for i in range(args.diverse_beam):
+                temp.append([inputs_string[idx], outputs_string[args.diverse_beam*idx+i].replace(inputs_string[idx], '')])
             all_outputs.append(temp)
 
     if rank == 0:
@@ -251,7 +265,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", default="", type=str, help="config path")
     parser.add_argument("--batch_size", type=int, default=0, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
-    parser.add_argument("--diverse_beam", type=int, default=1, help="batch size")
+    parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
     parser.add_argument("--out_path", default="", type=str, help="config path")
     args = parser.parse_args()
 

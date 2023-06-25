@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_1.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_3.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_0.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_7.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_4.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_2.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_6.txt'
+Traceback (most recent call last):
+  File "scoring_responses.py", line 64, in <module>
+    with open(sys.argv[1], 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/RL/generated_data/beam4_5.txt'
