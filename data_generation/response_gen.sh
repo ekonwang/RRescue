@@ -15,4 +15,4 @@ torchrun --nproc_per_node 1 --master_port 7834 response_gen.py \
 # bash ./scoring_responses.sh $OUT_DIR
 # python make_data.py $OUT_DIR
 
-# bash response_gen.sh chainyo/alpaca-lora-7b /workspace/RL/generated_data
+# bash response_gen.sh chainyo/alpaca-lora-7b ../generated_data
