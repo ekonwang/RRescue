@@ -78,18 +78,18 @@ class SupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.input_ids = []
         
-        # for item in self.dataset_for_eval:
-        #     if self.data_path == 'Dahoas/rm-static':
-        #         source = item['prompt']
-        #     elif data_path == 'esnli':
-        #         premise = item['premise']
-        #         hypothesis = item['hypothesis']
-        #         source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
-        #         'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
-        #         '”The answer is <answer>. <explaination>”.'
-        #     else:
-        #         raise NotImplementedError()
-        #     self.input_ids.append(_tokenize_fn(source))
+        for item in self.dataset_for_eval:
+            if self.data_path == 'Dahoas/rm-static':
+                source = item['prompt']
+            elif data_path == 'esnli':
+                premise = item['premise']
+                hypothesis = item['hypothesis']
+                source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
+                f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
+                f'"The answer is <answer>. <explaination>".'
+            self.input_ids.append(_tokenize_fn(source))
+        else:
+            raise NotImplementedError()
 
     def __len__(self):
         return len(self.dataset_for_eval)
