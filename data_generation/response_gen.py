@@ -78,18 +78,18 @@ class SupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.input_ids = []
         
-        for item in self.dataset_for_eval:
-            if self.data_path == 'Dahoas/rm-static':
-                source = item['prompt']
-            elif data_path == 'esnli':
-                premise = item['premise']
-                hypothesis = item['hypothesis']
-                source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
-                f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
-                f'"The answer is <answer>. <explaination>".'
-            self.input_ids.append(_tokenize_fn(source))
-        else:
-            raise NotImplementedError()
+        # for item in self.dataset_for_eval:
+        #     if self.data_path == 'Dahoas/rm-static':
+        #         source = item['prompt']
+        #     elif data_path == 'esnli':
+        #         premise = item['premise']
+        #         hypothesis = item['hypothesis']
+        #         source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
+        #         f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
+        #         f'"The answer is <answer>. <explaination>".'
+        #     self.input_ids.append(_tokenize_fn(source))
+        # else:
+        #     raise NotImplementedError()
 
     def __len__(self):
         return len(self.dataset_for_eval)
@@ -108,7 +108,7 @@ class SupervisedDataset(Dataset):
             '”The answer is <answer>. <explaination>”.'
         else:
             raise NotImplementedError()
-        return _tokenize_fn(source)
+        return dict(input_ids=_tokenize_fn(source), id=i)
 
 
 def padding(inputs, padding_token, cutoff = None):
@@ -181,6 +181,7 @@ def main(rank, args):
     data_path = args.data_path
     batch_size = args.batch_size
 
+    print(f'{base_model} loading..')
     if 'pytorch_model.bin' not in base_model:
         model = LlamaForCausalLM.from_pretrained(
                 base_model,
@@ -194,7 +195,8 @@ def main(rank, args):
         ckpt_state = torch.load(base_model)
         ckpt_state = {k[11:]:v for k, v in ckpt_state.items() if k.startswith('base_model.')}
         model.load_state_dict(ckpt_state, strict=False)
-
+    print(f'{base_model} load completed!!')
+    
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
     if tokenizer.pad_token is None:
@@ -215,11 +217,13 @@ def main(rank, args):
 
     torch.cuda.set_device(rank)
     model.to(torch.cuda.current_device())
-    # half precision in inference.
-    model = DDP(model, device_ids=[torch.cuda.current_device()])
+    if world_size > 1:
+        model = DDP(model, device_ids=[torch.cuda.current_device()])
     model.eval()
 
+    print(f'{data_path} loading..')
     eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path)
+    print(f'{data_path} load completed!!')
     
     if world_size > 1:
         sampler = torch.utils.data.distributed.DistributedSampler(eval_dataset, num_replicas=world_size, rank=rank, shuffle=False)
