@@ -6,32 +6,38 @@
 
 1. 首先安装对应 cuda 版本的 torch：
 
-`pip install torch==1.13.0+cu116 torchvision==0.14.0+cu116 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu116`
+```shell
+pip install torch==1.13.0+cu116 torchvision==0.14.0+cu116 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu116
+```
 
 2. 安装 `dev0` 版本 `transformers` 以满足 Llama 🦙 模型依赖
 
-`wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip`
+```shell
+wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip
 
-`mv ./transformers-main ./transformers`
+mv ./transformers-main ./transformers
 
-`pip install -e ./transformers`
-
+pip install -e ./transformers
+```
 
 3. 安装其他依赖
 
-`pip install -r requirements.txt`
+```shell
+pip install -r requirements.txt
+```
 
 4. 开始数据生成，根据空闲 GPU 数量自行修改 NPROC 变量
 
 
-`cd data_generation`
+```shell
+cd data_generation
 
-`chmod +x response_gen.sh`
+chmod +x response_gen.sh
 
-`./response_gen.sh`
+./response_gen.sh
+```
 
-
-## 数据增强
+## 数据生成
 
 - [ ]  SNLI 数据生成 (Jun23 - Jun25)
     - [x] 模型 Alpaca-lora-7B 或者更小的 Flan-T5 模型(可能不行因为无法对话).
