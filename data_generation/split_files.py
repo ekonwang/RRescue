@@ -6,7 +6,7 @@ import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Parameters')
-    parser.add_argument('--data_path', type=str, default='../generated_data')
+    parser.add_argument('--out_path', type=str, default='../generated_data')
     parser.add_argument('--num_process', type=int, default=1)
     parser.add_argument('--dataset', type=str, default='Dahoas/rm-static')
     args = parser.parse_args()
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     args = parse_args()
     dataset = load_dataset(args.dataset)['train']
     dataset_name = args.dataset.split('/')[-1]
-    with open(args.data_path + f'/raw_generation_{dataset_name}.json', 'r') as f:
+    with open(args.out_path + f'/raw_generation_{dataset_name}.json', 'r') as f:
         samples = json.load(f)
     samples = samples[:len(dataset)]
 
@@ -32,15 +32,17 @@ if __name__ == '__main__':
         if args.dataset == 'Dahoas/rm-static':
             temp.append(dataset[idx]['chosen'])
             temp.append(dataset[idx]['rejected'])
+        if args.dataset == 'esnli':
+            temp.append(dataset[idx]['explanation_1'])
         
         temp[1] = [i.replace(temp[0], "") for i in temp[1]]
         buffer.append(temp)
         if len(buffer) == split_size:
-            with open(args.data_path + f'/beam4_{count}.txt', 'w') as f:
+            with open(args.out_path + f'/beam4_{count}.json', 'w') as f:
                 json.dump(buffer, f, indent=4)
             count += 1
             buffer = []
 
     if len(buffer):
-        with open(args.data_path + f'/beam4_{count}.txt', 'w') as f:
+        with open(args.out_path + f'/beam4_{count}.json', 'w') as f:
             json.dump(buffer, f, indent=4)
