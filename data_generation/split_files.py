@@ -6,15 +6,18 @@ import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Parameters')
+    parser.add_argument('--data_path', type=str, default='../generated_data')
     parser.add_argument('--num_process', type=int, default=1)
     parser.add_argument('--dataset', type=str, default='Dahoas/rm-static')
     args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
     args = parse_args()
     dataset = load_dataset(args.dataset)['train']
-    with open(sys.argv[1] + '/raw_generation.json', 'r') as f:
-        samples = [json.loads(item) for item in f.readlines()]
+    dataset_name = args.dataset.split('/')[-1]
+    with open(args.data_path + f'/raw_generation_{dataset_name}.json', 'r') as f:
+        samples = json.load(f)
     samples = samples[:len(dataset)]
 
     print('=='*10)
@@ -33,17 +36,11 @@ if __name__ == '__main__':
         temp[1] = [i.replace(temp[0], "") for i in temp[1]]
         buffer.append(temp)
         if len(buffer) == split_size:
-            with open(sys.argv[2] + f'/beam4_{count}.txt', 'w') as f:
-                for item in buffer:
-                    f.write(json.dumps(item) + '\n')
+            with open(args.data_path + f'/beam4_{count}.txt', 'w') as f:
+                json.dump(buffer, f, indent=4)
             count += 1
             buffer = []
 
     if len(buffer):
-        with open(sys.argv[2] + f'/beam4_{count}.txt', 'w') as f:
-            for item in buffer:
-                f.write(json.dumps(item) + '\n')
-        
-
-
-        
+        with open(args.data_path + f'/beam4_{count}.txt', 'w') as f:
+            json.dump(buffer, f, indent=4)

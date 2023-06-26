@@ -78,34 +78,21 @@ class SupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.input_ids = []
         
-        # for item in self.dataset_for_eval:
-        #     if self.data_path == 'Dahoas/rm-static':
-        #         source = item['prompt']
-        #     elif data_path == 'esnli':
-        #         premise = item['premise']
-        #         hypothesis = item['hypothesis']
-        #         source = f'Given premise "{premise}", and here is hypothesis "{hypothesis}", please choose their relation '
-        #         f'from "entailment", "contradiction" and "neutral", and then give the explaination. Please give answer in format '
-        #         f'"The answer is <answer>. <explaination>".'
-        #     self.input_ids.append(_tokenize_fn(source, self.tokenizer))
-        # else:
-        #     raise NotImplementedError()
-
     def __len__(self):
         return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        # return dict(input_ids=self.input_ids[i], labels=self.labels[i], id=i)
-        
         item = self.dataset_for_eval[i]
         if self.data_path == 'Dahoas/rm-static':
             source = item['prompt']
         elif self.data_path == 'esnli':
             premise = item['premise']
             hypothesis = item['hypothesis']
-            source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '
-            'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '
-            '”The answer is <answer>. <explaination>”.'
+            # source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '\
+            # 'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '\
+            # '”The answer is <answer>. <explaination>”.'
+            source = f'Premise is "{premise}", and hypothesis is "{hypothesis}", please choose their relation '\
+            '("entailment", "contradiction", "neutral") and give a explaination.'
         else:
             raise NotImplementedError()
         return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
@@ -250,6 +237,10 @@ def main(rank, args):
     for step, batch in tqdm(enumerate(dataloader)):
         input_ids = batch['input_ids'].to(model.device)
         attention_mask = batch['attention_mask'].to(model.device)
+        if step == 0:
+            print(input_ids.size(0))
+            print(input_ids[0])
+            print(attention_mask[0])
         with torch.no_grad():
             if world_size > 1:
                 generation_model = model.module 
@@ -286,9 +277,9 @@ def main(rank, args):
 
     if rank == 0:
         import json
-        with open(args.out_path + f'/raw_generation.json', 'w') as f:
-            for item in all_outputs:
-                f.write(json.dumps(item, indent=4) + '\n')
+        dataset_name = data_path.split('/')[-1]
+        with open(args.out_path + f'/raw_generation_{dataset_name}.json', 'w') as f:
+            json.dump(all_outputs, f, indent=4)
  
 
 if __name__ == "__main__":

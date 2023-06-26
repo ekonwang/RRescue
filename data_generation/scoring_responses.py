@@ -3,6 +3,8 @@ import json
 import math
 import os
 import torch
+import argparse
+import sys
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
@@ -54,39 +56,49 @@ def create_reward_fn():
             input_ids = input.input_ids[batch_ixs]
             rewards = reward_model(input_ids)
             out.extend(rewards.cpu().tolist())
-
         return out
 
     return reward_fn
 
-import sys
 
-with open(sys.argv[1], 'r') as f:
-    candidates = [json.loads(item.strip()) for item in f.readlines()]
-outputs = []
-input_buffer = []
-response_num = len(candidates[0][1]) + 2
-reward_fn = create_reward_fn()
+def parse_args():
+    parser = argparse.ArgumentParser(description='Parameters')
+    parser.add_argument('--dataset', type=int, default=1)
+    parser.add_argument('--input_file', type=str)
+    parser.add_argument('--output_file', type=str)
+    args = parser.parse_args()
+    return args
 
-for idx in tqdm(range(len(candidates))):
-    input_buffer.append([candidates[idx][0] + ' ' + item for item in candidates[idx][1]])
-    input_buffer[-1].append(candidates[idx][0] + ' ' + candidates[idx][2])
-    input_buffer[-1].append(candidates[idx][0] + ' ' + candidates[idx][3])
-    if len(input_buffer) == 5 or idx == len(candidates)-1:
-        input_texts = sum(input_buffer, [])
-        reward_results = reward_fn(input_texts)
-        for i in range(0, len(reward_results), response_num):
-            rs = reward_results[i: i+response_num]
-            outputs.append(rs)
-        input_buffer = []
 
-assert len(outputs) == len(candidates)
+if __name__ == '__main__':
+    args = parse_args()
+    with open(args.input_file, 'r') as f:
+        candidates = json.load(f)
+    outputs = []
+    input_buffer = []
+    # 1st sample's reponses
+    response_num = len(candidates[0][1])
+    reward_fn = create_reward_fn()
 
-finals = []
-for rs, cans in tqdm(zip(outputs, candidates)):
-    finals.append({'prompt':cans[0], 'response':cans[1]+[cans[2], cans[3]], 'scores':rs})
-    assert len(finals[-1]['response']) == len(finals[-1]['scores'])
+    for idx in tqdm(range(len(candidates))):
+        input_buffer.append([candidates[idx][0] + ' ' + item for item in candidates[idx][1]])
+        input_buffer[-1].append(candidates[idx][0] + ' ' + candidates[idx][2])
+        input_buffer[-1].append(candidates[idx][0] + ' ' + candidates[idx][3])
+        if len(input_buffer) == 5 or idx == len(candidates)-1:
+            input_texts = sum(input_buffer, [])
+            reward_results = reward_fn(input_texts)
+            for i in range(0, len(reward_results), response_num):
+                rs = reward_results[i: i+response_num]
+                outputs.append(rs)
+            input_buffer = []
 
-with open(sys.argv[2], 'w') as f:
-    json.dump(finals, f, indent=2)
+    assert len(outputs) == len(candidates)
+
+    finals = []
+    for rs, cans in tqdm(zip(outputs, candidates)):
+        finals.append({'prompt':cans[0], 'response':cans[1]+[cans[2], cans[3]], 'scores':rs})
+        assert len(finals[-1]['response']) == len(finals[-1]['scores'])
+
+    with open(sys.argv[2], 'w') as f:
+        json.dump(finals, f, indent=2)
 
