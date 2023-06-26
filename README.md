@@ -11,7 +11,9 @@
 2. 安装 dev 版本 `transformers`
 
 `wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip`
+
 `mv ./transformers-main ./transformers`
+
 `pip install -e ./transformers`
 
 
@@ -23,7 +25,9 @@
 
 
 `cd data_generation`
+
 `chmod +x response_gen.sh`
+
 `./response_gen.sh`
 
 
