@@ -10,11 +10,10 @@
 
 2. 安装 dev 版本 `transformers`
 
-```
-wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip
-mv ./transformers-main ./transformers
-pip install -e ./transformers
-```
+`wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip`
+`mv ./transformers-main ./transformers`
+`pip install -e ./transformers`
+
 
 3. 安装其他依赖
 
@@ -22,11 +21,10 @@ pip install -e ./transformers
 
 4. 开始数据生成，根据空闲 GPU 数量自行修改 NPROC 变量
 
-```
-cd data_generation
-chmod +x response_gen.sh
-./response_gen.sh
-```
+
+`cd data_generation`
+`chmod +x response_gen.sh`
+`./response_gen.sh`
 
 
 ## 数据增强
