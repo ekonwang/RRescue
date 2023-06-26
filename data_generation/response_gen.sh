@@ -11,8 +11,8 @@ mkdir -p $OUT_DIR
 #                         --data_path $DATA \
 #                         --out_path $OUT_DIR \
 #                         --diverse_beam 4 \
-#                         --batch_size 4
+#                         --batch_size 1
 
-# python ./split_files.py --dataset $DATA --out_path $OUT_DIR --num_process $NPROC
-python ./run_scoring_responses.py --dataset $DATA --num_process $NPROC
-# python make_data.py $OUT_DIR
+python ./split_files.py --dataset $DATA --out_path $OUT_DIR --num_process $NPROC
+python ./run_scoring_responses.py --num_process $NPROC
+python make_data.py $OUT_DIR

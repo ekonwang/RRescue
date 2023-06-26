@@ -88,11 +88,8 @@ class SupervisedDataset(Dataset):
         elif self.data_path == 'esnli':
             premise = item['premise']
             hypothesis = item['hypothesis']
-            # source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation '\
-            # 'from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format '\
-            # '”The answer is <answer>. <explaination>”.'
-            source = f'Premise is "{premise}", and hypothesis is "{hypothesis}", please choose their relation '\
-            '("entailment", "contradiction", "neutral") and give a explaination.'
+            # source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format ”The answer is <answer>. <explaination>”.'
+            source = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n' + f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
         else:
             raise NotImplementedError()
         return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
@@ -141,7 +138,7 @@ class DataCollatorForSupervisedDataset(object):
                 value = instance[proto_key]
                 value_list.append(value)
             if isinstance(value, torch.Tensor):
-                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256)
+                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512)
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
             elif isinstance(value, str):

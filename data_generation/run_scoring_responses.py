@@ -19,7 +19,7 @@ if __name__ == '__main__':
     
     for i in range(args.num_process):
         input_file = f'../generated_data/beam4_{i}.json'
-        output_file = f'../generated_data/beam4_{i}_scored.json'
+        output_file = f'../generated_data/scored_beam4_{i}.json'
         process = multiprocess.Process(target=run_scoring_responses, args=(i, input_file, output_file))
         process.start()
     

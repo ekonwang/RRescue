@@ -4,6 +4,12 @@ import json
 import sys
 import tqdm
 
+map_dict = {
+    0: 'entailment',
+    1: 'neutral',
+    2: 'contradiction'
+}
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Parameters')
     parser.add_argument('--out_path', type=str, default='../generated_data')
@@ -11,6 +17,15 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='Dahoas/rm-static')
     args = parser.parse_args()
     return args
+
+
+def post_process(responses):
+    for i, response in enumerate(responses):
+        response = response.strip().lstrip('\n')
+        response = response.split('\n')[0]
+        responses[i] = response
+    return responses
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -33,7 +48,10 @@ if __name__ == '__main__':
             temp.append(dataset[idx]['chosen'])
             temp.append(dataset[idx]['rejected'])
         if args.dataset == 'esnli':
+            temp[1] = post_process(temp[1])
             temp.append(dataset[idx]['explanation_1'])
+            label = dataset[idx]['label']
+            temp.append(map_dict[label])
         
         temp[1] = [i.replace(temp[0], "") for i in temp[1]]
         buffer.append(temp)

@@ -38,7 +38,6 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-
 if __name__ == '__main__':
     args = parse_args()
     torch.cuda.set_device(args.device_id)
@@ -60,7 +59,9 @@ if __name__ == '__main__':
 
     finals = []
     for rs, cans in tqdm(zip(outputs, candidates)):
-        finals.append({'prompt':cans[0], 'response':cans[1], 'scores':rs})
+        human_idx = cans[0].rfind('Human:')
+        question_part = cans[0][human_idx:]
+        finals.append({'prompt':cans[0], 'question':question_part, 'response':cans[1], 'explaination':cans[2], 'scores':rs, 'label': cans[3]})
         assert len(finals[-1]['response']) == len(finals[-1]['scores'])
 
     with open(args.output_file, 'w') as f:
