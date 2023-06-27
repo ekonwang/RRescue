@@ -70,13 +70,25 @@ def _tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
-    def __init__(self, data_path: str, tokenizer: transformers.PreTrainedTokenizer):
+    def __init__(self, data_path: str, tokenizer: transformers.PreTrainedTokenizer, expansion: int = 0):
         super(SupervisedDataset, self).__init__()
 
         self.dataset_for_eval = load_dataset(data_path)['train']
         self.data_path = data_path
         self.tokenizer = tokenizer
         self.input_ids = []
+        self.expansion = expansion
+        
+        if self.data_path == 'esnli':
+            """
+            Prompt template for esnli: 
+            f'Human: Premise is "" and hypothesis is ""\n\nAssistant: It\'s entailment/neutral/contradiction. Because <explaination>\n\n'
+            """
+            self.entailment_prompt = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink." and hypothesis is "Two kids in numbered jerseys wash their hands."\n\nAssistant: It\'s entailment. Because young children are kids. Jerseys with number 9 and 2 are numbered jerseys.\n\n' + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A man selling donuts to a customer."\n\nAssistant: It\'s entailment. Because a man selling donuts is selling donuts.\n\n'
+            
+            self.neutral_prompt = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Because the to go packages may not be from lunch.\n\n' + f'Human: Premise is "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink." and hypothesis is "Two kids at a ballgame wash their hands."\n\nAssistant: It\'s neutral. Because two kids in jerseys watching their hands are not necessarily at a ballgame.\n\n' + f'Human: Premise is "" and hypothesis is ""\n\nAssistant: It\'s entailment/neutral/contradiction. Because <explaination>\n\n' + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A man selling donuts to a customer during a world exhibition event while people wait in line behind him."\n\nAssistant: It\'s neutral. Because just because a customer buys donuts at a world exhibition event doesn\'t mean people are waiting in line behind him.\n\n'
+            
+            self.contradiction_prompt = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli."\n\nAssistant: It\'s contradiction. Because In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink." and hypothesis is "Two kids in jackets walk to school."\n\nAssistant: It\'s contradiction. Because If you\'re wearing a jacket, you won\'t be able to see the blue jerseys. When you\'re standing in a bathroom, you cannot be walking to school at the same time.\n\n' + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A woman drinks her coffee in a small cafe."\n\nAssistant: It\'s contradiction. Because there can be either a man or a woman, who can be either selling donuts or drinking coffee.\n\n'
         
     def __len__(self):
         return len(self.dataset_for_eval)
@@ -88,12 +100,19 @@ class SupervisedDataset(Dataset):
         elif self.data_path == 'esnli':
             premise = item['premise']
             hypothesis = item['hypothesis']
+            real_question = f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
             # source = f'Premise is ”{premise}”, and hypothesis is ”{hypothesis}”, please choose their relation from ”entailment”, ”contradiction” and ”neutral”, and then give a explaination. Please answer in format ”The answer is <answer>. <explaination>”.'
-            source = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n' + f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
+            source = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n' + real_question
             
             # source = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
             
             # source = f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n' + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n' + f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
+            
+            if self.expansion > 1:
+                source = list()
+                source.append(self.entailment_prompt + real_question)
+                source.append(self.neutral_prompt + real_question)
+                source.append(self.contradiction_prompt + real_question)
         else:
             raise NotImplementedError()
         return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
@@ -141,7 +160,10 @@ class DataCollatorForSupervisedDataset(object):
             for instance in instances:
                 value = instance[proto_key]
                 value_list.append(value)
-            if isinstance(value, torch.Tensor):
+            if isinstance(value, list):
+                value_list = sum(value_list, list())
+                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512)
+            elif isinstance(value, torch.Tensor):
                 results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512)
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
@@ -155,9 +177,9 @@ class DataCollatorForSupervisedDataset(object):
         return results
         
 
-def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, data_path) -> Dict:
+def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer, data_path, expansion=0) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
-    eval_dataset = SupervisedDataset(tokenizer=tokenizer, data_path=data_path)
+    eval_dataset = SupervisedDataset(tokenizer=tokenizer, data_path=data_path, expansion=expansion)
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return eval_dataset, data_collator
 
@@ -172,7 +194,7 @@ def main(rank, args):
     
     print(f'{data_path} loading..')
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
-    eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path)
+    eval_dataset, data_collator = make_supervised_data_module(tokenizer, data_path, expansion=args.expansion)
     print(f'{data_path} load completed!!')
 
     print(f'{base_model} loading..')
@@ -234,6 +256,8 @@ def main(rank, args):
         num_return_sequences=args.diverse_beam,
 
     )
+    if args.expansion > 1:
+        args.diverse_beam *= 3
     all_outputs = []
     for step, batch in tqdm(enumerate(dataloader)):
         input_ids = batch['input_ids'].to(model.device)
@@ -291,6 +315,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=0, help="batch size")
     parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
     parser.add_argument("--out_path", default="", type=str, help="config path")
+    parser.add_argument("--expansion", type=int, default=0, help="prompt number expansion rate")
     args = parser.parse_args()
 
     local_rank = int(os.environ["LOCAL_RANK"])
