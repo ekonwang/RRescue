@@ -35,7 +35,13 @@ def parse_args():
     parser.add_argument('--device_id', type=int, default=0)
     parser.add_argument('--input_file', type=str)
     parser.add_argument('--output_file', type=str)
+    parser.add_argument('--expansion', type=int, required=True)
     args = parser.parse_args()
+    
+    if args.expansion > 1:
+        args.expansion = 3
+    else:
+        args.expansion = 1
     return args
 
 if __name__ == '__main__':
@@ -43,26 +49,41 @@ if __name__ == '__main__':
     torch.cuda.set_device(args.device_id)
     with open(args.input_file, 'r') as f:
         candidates = json.load(f)
-    outputs = []
-    input_buffer = []
+    finals = []
     # proto sample's reponses number
     response_num = len(candidates[0][1])
     reward_fn = create_reward_fn()
 
-    for idx in tqdm(range(len(candidates))):
-        candidate = candidates[idx][1]
-        gt_explaination = candidates[idx][2]
-        result_scores = reward_fn(candidate, gt_explaination)
-        outputs.append(result_scores)
+    for idx in tqdm(range(len(candidates) // args.expansion)):
+        prompts = list()
+        candidate = list()
+        gt_explaination = candidates[idx * args.expansion][2]
+        label = candidates[idx * args.expansion][3]
+        for inner in range(args.expansion):
+            candidate.append(candidates[idx * args.expansion + inner][1])
+            prompts.append(candidates[idx * args.expansion + inner][0])
+        candidate = sum(candidate, [])
+        results_scores = reward_fn(candidate, gt_explaination)
+        human_idx = prompts[-1].rfind('Human:')
+        question_part = prompts[-1][human_idx:]
+        
+        assert args.expansion == len(prompts)
+        assert len(results_scores) == args.expansion*response_num
+        
+        finals.append(dict(
+            prompt = prompts,
+            question = question_part,
+            response = candidate,
+            explaination = gt_explaination,
+            scores = results_scores,
+            label = label
+        ))
 
-    assert len(outputs) == len(candidates)
-
-    finals = []
-    for rs, cans in tqdm(zip(outputs, candidates)):
-        human_idx = cans[0].rfind('Human:')
-        question_part = cans[0][human_idx:]
-        finals.append({'prompt':cans[0], 'question':question_part, 'response':cans[1], 'explaination':cans[2], 'scores':rs, 'label': cans[3]})
-        assert len(finals[-1]['response']) == len(finals[-1]['scores'])
+    # for rs, cans in tqdm(zip(outputs, candidates)):
+    #     human_idx = cans[0].rfind('Human:')
+    #     question_part = cans[0][human_idx:]
+    #     finals.append({'prompt':cans[0], 'question':question_part, 'response':cans[1], 'explaination':cans[2], 'scores':rs, 'label': cans[3]})
+    #     assert len(finals[-1]['response']) == len(finals[-1]['scores'])
 
     with open(args.output_file, 'w') as f:
         json.dump(finals, f, indent=2)
