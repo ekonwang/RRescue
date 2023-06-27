@@ -269,7 +269,7 @@ def main(rank, args):
             for i in range(args.diverse_beam):
                 temp.append([inputs_string[idx], outputs_string[args.diverse_beam*idx+i].replace(inputs_string[idx], '')])
             all_outputs.append(temp)
-        if step == 3:
+        if step == 24:
             break
 
     if rank == 0:
