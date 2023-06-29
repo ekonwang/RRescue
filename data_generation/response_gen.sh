@@ -20,4 +20,4 @@ mkdir -p $OUT_DIR
 # python ./split_files.py --dataset $DATA --out_path $OUT_DIR --num_process $NPROC --expansion $expansion
 # python ./run_scoring_responses.py --num_process $NPROC --expansion $expansion
 # python make_data.py $OUT_DIR
-python ../data_check.py > $OUT_DIR/test.log
+python ./data_check.py > $OUT_DIR/test.log
