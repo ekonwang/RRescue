@@ -1,10 +1,10 @@
 export MASTER_ADDR=localhost
 export MASTER_PORT=7834
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 MODEL_DIR=chainyo/alpaca-lora-7b
 OUT_DIR=../generated_data
 DATA="esnli"
-NPROC=1
+NPROC=4
 # default prompt expansion
 diverse_beam=4
 expansion=3
@@ -17,7 +17,7 @@ torchrun --nproc_per_node $NPROC --master_port 7835 response_gen.py \
                         --expansion $expansion \
                         --batch_size 1
 
-python ./split_files.py --dataset $DATA --out_path $OUT_DIR --num_process $NPROC --expansion $expansion
-python ./run_scoring_responses.py --num_process $NPROC --expansion $expansion
-python make_data.py $OUT_DIR
-python ./data_check.py --diverse_beam $diverse_beam --expansion $expansion > $OUT_DIR/test.log
+# python ./split_files.py --dataset $DATA --out_path $OUT_DIR --num_process $NPROC --expansion $expansion
+# python ./run_scoring_responses.py --num_process $NPROC --expansion $expansion
+# python make_data.py $OUT_DIR
+# python ./data_check.py --diverse_beam $diverse_beam --expansion $expansion > $OUT_DIR/test.log

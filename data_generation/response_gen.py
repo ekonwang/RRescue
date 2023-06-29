@@ -162,9 +162,9 @@ class DataCollatorForSupervisedDataset(object):
                 value_list.append(value)
             if isinstance(value, list):
                 value_list = sum(value_list, list())
-                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512)
+                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256)
             elif isinstance(value, torch.Tensor):
-                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512)
+                results[proto_key] = padding(value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256)
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
             elif isinstance(value, str):
