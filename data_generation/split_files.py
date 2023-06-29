@@ -29,6 +29,7 @@ def post_process(responses):
     for i, response in enumerate(responses):
         response = response.strip().lstrip('\n')
         response = response.split('\n')[0]
+        response = response.split('.', 1)[1]
         responses[i] = response
     return responses
 

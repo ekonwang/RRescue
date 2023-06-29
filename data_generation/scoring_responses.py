@@ -79,11 +79,5 @@ if __name__ == '__main__':
             label = label
         ))
 
-    # for rs, cans in tqdm(zip(outputs, candidates)):
-    #     human_idx = cans[0].rfind('Human:')
-    #     question_part = cans[0][human_idx:]
-    #     finals.append({'prompt':cans[0], 'question':question_part, 'response':cans[1], 'explaination':cans[2], 'scores':rs, 'label': cans[3]})
-    #     assert len(finals[-1]['response']) == len(finals[-1]['scores'])
-
     with open(args.output_file, 'w') as f:
         json.dump(finals, f, indent=2)
