@@ -1,6 +1,6 @@
 numpy
 sentencepiece
-tokenizers==0.12.1
+tokenizers
 sentence-transformers
 datasets
 wandb

@@ -1,5 +1,6 @@
-generated_data/
-*data/
+*output*
+__pycache__/
 
 *.zip
-transformers
+transformers/
+*.sh

@@ -48,4 +48,3 @@ chmod +x response_gen.sh
     - [x] 测试 `data_generation` 模块.
 
 - [ ]  训练 pipeline (Jun28 - Jun30)
-
