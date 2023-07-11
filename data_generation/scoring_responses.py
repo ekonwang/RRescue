@@ -12,6 +12,12 @@ from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
 
+def preprocess(text):
+    assert "entailment" in text or "neutral" in text or "contradiction" in text
+    processed_text = text.split(".", 1)[1].strip()
+    return processed_text
+
+
 def create_reward_fn():
     sbert = SentenceTransformer("all-MiniLM-L6-v2")
     sbert.to(torch.cuda.current_device())
@@ -24,6 +30,7 @@ def create_reward_fn():
                 results.append(sim)
             return results
         else:
+            candidate = preprocess(candidate)
             embed = sbert.encode(candidate, convert_to_tensor=True).to(sbert.device)
             gt_embed = sbert.encode(gt_explaination, convert_to_tensor=True).to(
                 sbert.device
@@ -74,6 +81,11 @@ if __name__ == "__main__":
 
         assert args.expansion == len(prompts)
         assert len(results_scores) == args.expansion * response_num
+
+        # add real human response into candidates
+        real_human = "It's {}. Because {}.".format(label, gt_explaination)
+        candidate = [real_human] + candidate
+        results_scores = [1.0] + results_scores
 
         finals.append(
             dict(

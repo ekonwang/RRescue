@@ -22,11 +22,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parameters")
     parser.add_argument("--num_process", type=int, default=1)
     parser.add_argument("--expansion", type=int, required=True)
+    parser.add_argument("--output", type=str)
     args = parser.parse_args()
 
     for i in range(args.num_process):
-        input_file = f"../generated_data/beam4_{i}.json"
-        output_file = f"../generated_data/scored_beam4_{i}.json"
+        input_file = f"{args.output}/beam4_{i}.json"
+        output_file = f"{args.output}/scored_beam4_{i}.json"
         process = multiprocess.Process(
             target=run_scoring_responses,
             args=(i, args.expansion, input_file, output_file),

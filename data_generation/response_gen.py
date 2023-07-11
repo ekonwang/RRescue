@@ -102,47 +102,12 @@ class SupervisedDataset(Dataset):
             Human: Premise is <premise> and hypothesis is <hypothesis>\n\nAssistant: It\'s <result>.  <explaination>\n\n
             """
             contexts = self.contexts["esnli"]
-            self.entailment = self.contexts["entailment"]
-            self.neutral = self.contexts["neutral"]
-            self.contradiction = self.contexts["contradiction"]
-            self.comb_1 = self.contexts["comp_1"]
-            self.comb_2 = self.contexts["comp_2"]
-            self.comb_3 = self.contexts["comp_3"]
-            # self.entailment_prompt = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n'
-            #     + f'Human: Premise is "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink." and hypothesis is "Two kids in numbered jerseys wash their hands."\n\nAssistant: It\'s entailment. Because young children are kids. Jerseys with number 9 and 2 are numbered jerseys.\n\n'
-            #     + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A man selling donuts to a customer."\n\nAssistant: It\'s entailment. Because a man selling donuts is selling donuts.\n\n'
-            # )
-
-            # self.neutral_prompt = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Because the to go packages may not be from lunch.\n\n'
-            #     + f'Human: Premise is "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink." and hypothesis is "Two kids at a ballgame wash their hands."\n\nAssistant: It\'s neutral. Because two kids in jerseys watching their hands are not necessarily at a ballgame.\n\n'
-            #     + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A man selling donuts to a customer during a world exhibition event while people wait in line behind him."\n\nAssistant: It\'s neutral. Because just because a customer buys donuts at a world exhibition event doesn\'t mean people are waiting in line behind him.\n\n'
-            # )
-
-            # self.contradiction_prompt = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli."\n\nAssistant: It\'s contradiction. Because In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n'
-            #     + f"Human: Premise is \"Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink.\" and hypothesis is \"Two kids in jackets walk to school.\"\n\nAssistant: It's contradiction. Because If you're wearing a jacket, you won't be able to see the blue jerseys. When you're standing in a bathroom, you cannot be walking to school at the same time.\n\n"
-            #     + f'Human: Premise is "A man selling donuts to a customer during a world exhibition event held in the city of Angeles" and hypothesis is "A woman drinks her coffee in a small cafe."\n\nAssistant: It\'s contradiction. Because there can be either a man or a woman, who can be either selling donuts or drinking coffee.\n\n'
-            # )
-
-            # self.comp_prompt_1 = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n'
-            # )
-
-            # self.comp_prompt_2 = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n'
-            # )
-
-            # self.comp_prompt_3 = (
-            #     f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The men are fighting outside a deli.\n\nAssistant: It\'s contradiction. In the first sentence there is an action of affection between women while on the second sentence there is a fight between men.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "The sisters are hugging goodbye while holding to go packages after just eating lunch."\n\nAssistant: It\'s neutral. Just because two women are embracing, does not mean they are sisters. Two women that are embracing are not necessarily hugging goodbye.\n\n'
-            #     + f'Human: Premise is "Two women are embracing while holding to go packages." and hypothesis is "Two woman are holding packages."\n\nAssistant: It\'s entailment. Because saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages.\n\n'
-            # )
+            self.entailment_context = contexts["entailment"]
+            self.neutral_context = contexts["neutral"]
+            self.contradiction_context = contexts["contradiction"]
+            self.comb_1_context = contexts["comp_1"]
+            self.comb_2_context = contexts["comp_2"]
+            self.comb_3_context = contexts["comp_3"]
 
     def __len__(self):
         return len(self.dataset_for_eval)
@@ -158,9 +123,9 @@ class SupervisedDataset(Dataset):
 
             if self.expansion > 1:
                 source = list()
-                source.append(self.entailment_prompt + query)
-                source.append(self.neutral_prompt + query)
-                source.append(self.contradiction_prompt + query)
+                source.append(self.entailment_context + query)
+                source.append(self.neutral_context + query)
+                source.append(self.contradiction_context + query)
         else:
             raise NotImplementedError()
         return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
@@ -213,11 +178,11 @@ class DataCollatorForSupervisedDataset(object):
             if isinstance(value, list):
                 value_list = sum(value_list, list())
                 results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256
+                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512
                 )
             elif isinstance(value, torch.Tensor):
                 results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=256
+                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512
                 )
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
@@ -274,6 +239,11 @@ def main(rank, args):
         }
         model.load_state_dict(ckpt_state, strict=False)
     print(f"{base_model} load completed!!")
+    torch.cuda.set_device(rank)
+    model.to(torch.cuda.current_device())
+    if world_size > 1:
+        model = DDP(model, device_ids=[torch.cuda.current_device()])
+    model.eval()
 
     if tokenizer.pad_token is None:
         smart_tokenizer_and_embedding_resize(
@@ -290,12 +260,6 @@ def main(rank, args):
             }
         )
     tokenizer.truncation_side = "left"
-
-    torch.cuda.set_device(rank)
-    model.to(torch.cuda.current_device())
-    if world_size > 1:
-        model = DDP(model, device_ids=[torch.cuda.current_device()])
-    model.eval()
 
     if world_size > 1:
         sampler = torch.utils.data.distributed.DistributedSampler(
@@ -324,7 +288,7 @@ def main(rank, args):
     else:
         args.expansion = 1
     all_outputs = []
-    for step, batch in tqdm(enumerate(dataloader)):
+    for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
         input_ids = batch["input_ids"].to(model.device)
         attention_mask = batch["attention_mask"].to(model.device)
         if step == 0:
@@ -385,6 +349,9 @@ def main(rank, args):
                     ]
                 )
             all_outputs.append(temp)
+
+        if step >= 1000:  # only select 1k samples for few-shot training
+            break
 
     if rank == 0:
         import json

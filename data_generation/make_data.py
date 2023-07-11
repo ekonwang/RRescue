@@ -18,7 +18,7 @@ if __name__ == "__main__":
         for x in df:
             all_df.append(
                 {
-                    "query": x["prompt"],
+                    "query": x["question"],
                     "responses": x["response"],
                     "scores": x["scores"],
                 }
