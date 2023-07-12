@@ -163,9 +163,7 @@ class RankTrainer(Trainer):
         logits = model(
             input_ids=inputs.get("input_ids"),
             attention_mask=inputs.get("attention_mask"),
-        )[
-            0
-        ]  # (batch * cand) * L * V
+        ).logits  # (batch * cand) * L * V
         logits = F.log_softmax(logits, dim=-1)
         logit_label = self.gather_logits_labels(logits, inputs.get("labels"))
         scores = self.get_score(logit_label, inputs.get("labels"))

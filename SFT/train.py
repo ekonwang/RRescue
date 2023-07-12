@@ -106,7 +106,7 @@ class DataCollatorForSupervisedDataset(object):
             )
             dummy_target = torch.LongTensor([IGNORE_INDEX])
 
-            r = ["responses"][0]  # only choose the dataset given one
+            r = responses[0]  # only choose the dataset given one
             res_input_ids = tokenize_fn(
                 r + self.tokenizer.eos_token,
                 self.tokenizer,
@@ -152,12 +152,11 @@ class SFTrainer(Trainer):
         return -logit_label[max_idx].mean()
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        logits = model(
+        outputs = model(
             input_ids=inputs.get("input_ids"),
             attention_mask=inputs.get("attention_mask"),
-        )[
-            0
-        ]  # (batch * cand) * L * V
+        )  # (batch * cand) * L * V
+        logits = outputs.logits
         logits = F.log_softmax(logits, dim=-1)
         logit_label = self.gather_logits_labels(logits, inputs.get("labels"))
         scores = self.get_score(logit_label, inputs.get("labels"))
