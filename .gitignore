@@ -4,4 +4,4 @@ wandb/
 
 *.log
 *.zip
-*.sh
+# *.sh
