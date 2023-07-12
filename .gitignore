@@ -1,6 +1,6 @@
 *output*
 __pycache__/
+wandb/
 
 *.zip
-transformers/
 *.sh

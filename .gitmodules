@@ -4,3 +4,6 @@
 [submodule "accelerate"]
 	path = accelerate
 	url = git@github.com:huggingface/accelerate.git
+[submodule "transformers"]
+	path = transformers
+	url = git@github.com:huggingface/transformers.git

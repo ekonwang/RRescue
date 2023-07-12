@@ -1,17 +1,17 @@
-from collections import Dict
-
 import transformers
 
 
-def tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
+def tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer, max_len=None):
     """Tokenize a list of strings."""
+    if max_len is None:
+        max_len = tokenizer.model_max_length
     if isinstance(strings, list):
         tokenized_list = [
             tokenizer(
                 text,
                 return_tensors="pt",
                 padding="longest",
-                max_length=tokenizer.model_max_length,
+                max_length=max_len,
                 truncation=True,
             )
             for text in strings
@@ -23,7 +23,7 @@ def tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
             strings,
             return_tensors="pt",
             padding="longest",
-            max_length=tokenizer.model_max_length,
+            max_length=max_len,
             truncation=True,
         )
         input_ids = tokenized.input_ids[0]
@@ -39,7 +39,7 @@ def stop_response(res):
 
 
 def smart_tokenizer_and_embedding_resize(
-    special_tokens_dict: Dict,
+    special_tokens_dict,
     tokenizer: transformers.PreTrainedTokenizer,
     model: transformers.PreTrainedModel,
 ):
