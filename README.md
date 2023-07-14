@@ -4,26 +4,34 @@
 
 ## 运行
 
+0. 配置新环境
+
+conda create -n rank python=3.8
+conda activate rank
+
 1. 首先安装对应 cuda 版本的 torch：
 
 ```shell
-pip install torch==1.13.0+cu116 torchvision==0.14.0+cu116 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu116
+cd <DIR>
+
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
-2. 安装 `dev0` 版本 `transformers` 以满足 Llama 🦙 模型依赖
+2. 安装 `dev0` 版本 `transformers` 以满足 Llama 🦙 模型依赖，以及训练要求的 `dev` 版本 `accelerate`
 
 ```shell
-wget https://github.com/huggingface/transformers/archive/refs/heads/main.zip && unzip main.zip
-
-mv ./transformers-main ./transformers
+git submodule update --init --recursive
 
 pip install -e ./transformers
+
+pip install -e ./accelerate
 ```
 
 3. 安装其他依赖
 
 ```shell
 pip install -r requirements.txt
+python -m pip install xformers
 ```
 
 4. 开始数据生成，根据空闲 GPU 数量自行修改 NPROC 变量
@@ -47,4 +55,9 @@ chmod +x response_gen.sh
     - [x] 针对 `e-snli` 任务提升 Alpaca-7B 生成质量.
     - [x] 测试 `data_generation` 模块.
 
-- [ ]  训练 pipeline (Jun28 - Jun30)
+- [x]  训练 pipeline (Jun28 - Jun14)
+    - [x] SFT 代码以及 RankSFT 代码
+    - [x] 生成 1k 条 proof-of-concept 训练样本数据
+    - [x] 八卡训练模型保存 checkpoint
+    - [ ] 分别 inference 并比较 E-SNLI 数据集 performance
+    - [ ] 看论文思考下一步方向
