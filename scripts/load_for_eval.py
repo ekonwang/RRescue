@@ -229,9 +229,7 @@ def main():
         if world_size > 1:
             # TODO: support multi-gpu evaluation
             raw_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
-            raw_inputs = sequence_gather(
-                input_ids, world_size, tokenizer.pad_token_id
-            )
+            raw_inputs = sequence_gather(input_ids, world_size, tokenizer.pad_token_id)
             raw_labels = sequence_gather(labels, world_size, 0)
             stacked_outputs = torch.stack(raw_outputs).reshape(
                 world_size, args.batch_size, -1
