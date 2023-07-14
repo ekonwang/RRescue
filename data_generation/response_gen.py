@@ -178,11 +178,11 @@ class DataCollatorForSupervisedDataset(object):
             if isinstance(value, list):
                 value_list = sum(value_list, list())
                 results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512
+                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=self.tokenizer.model_max_length
                 )
             elif isinstance(value, torch.Tensor):
                 results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=512
+                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=self.tokenizer.model_max_length
                 )
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
@@ -216,7 +216,10 @@ def main(rank, args):
     batch_size = args.batch_size
 
     print(f"{data_path} loading..")
-    tokenizer = LlamaTokenizer.from_pretrained(base_model)
+    tokenizer = LlamaTokenizer.from_pretrained(
+        base_model,
+        model_max_length=args.model_max_length
+    )
     eval_dataset, data_collator = make_supervised_data_module(
         tokenizer, data_path, expansion=args.expansion
     )
@@ -321,7 +324,7 @@ def main(rank, args):
                 batch_size * world_size * args.expansion * args.diverse_beam, -1
             )
             gathered_inputs = gathered_inputs.transpose(0, 1).reshape(
-                batch_size * args.expansion * world_size, -1
+                batch_size * world_size * args.expansion, -1
             )
         else:
             gather_outputs = s.reshape(
@@ -369,6 +372,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=0, help="batch size")
     parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
     parser.add_argument("--out_path", default="", type=str, help="config path")
+    parser.add_argument("--model_max_length", default=512, type=int, help="token length")
     parser.add_argument(
         "--expansion", type=int, default=0, help="prompt number expansion rate"
     )
