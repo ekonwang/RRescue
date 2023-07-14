@@ -1,6 +1,14 @@
 ### Jun23 - July23 一月工作计划 🚀
 
-目前的语言模型虽然强大，但语言模型在生成文本时依然容易受到无关context的影响，或者生成不基于 context 的输出。我们希望将 explaination 与相应的 context 对齐，以保证最终 output 的良好效果。
+目前的语言模型虽然强大，但语言模型在生成文本时依然容易受到无关context的影响，或者生成不基于 context 的输出。我们希望将模型输出的 explaination 与相应 query 具备的 context 对齐，以保证大语言模型 answer 的良好效果。
+
+包含项目细节的[腾讯文档](https://docs.qq.com/doc/DWnBIcGZVc3R6d0Nl)
+
+## 数据集
+
+- [E-SNLI](https://docs.qq.com/doc/DWnBIcGZVc3R6d0Nl)
+
+- 一些 QA 数据集
 
 ## 运行
 
