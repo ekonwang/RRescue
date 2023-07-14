@@ -48,9 +48,9 @@ python -m pip install xformers
 ```shell
 cd data_generation
 
-chmod +x response_gen.sh
+chmod +x gen_response.sh
 
-./response_gen.sh
+./gen_response.sh
 ```
 
 ## 数据生成
@@ -63,7 +63,9 @@ chmod +x response_gen.sh
     - [x] 针对 `e-snli` 任务提升 Alpaca-7B 生成质量.
     - [x] 测试 `data_generation` 模块.
 
-- [x]  训练 pipeline (Jun28 - Jun14)
+## 训练 pipeline
+
+- [x]  训练 pipeline (Jun28 - July14)
     - [x] SFT 代码以及 RankSFT 代码
     - [x] 生成 1k 条 proof-of-concept 训练样本数据
     - [x] 八卡训练模型保存 checkpoint
