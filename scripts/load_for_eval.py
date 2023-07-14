@@ -228,29 +228,33 @@ def main():
 
         if world_size > 1:
             # TODO: support multi-gpu evaluation
-            gather_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
-            gathered_inputs = sequence_gather(
+            raw_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
+            raw_inputs = sequence_gather(
                 input_ids, world_size, tokenizer.pad_token_id
             )
-            gathered_labels = sequence_gather(labels, world_size, 0)
-            gather_outputs = torch.stack(gather_outputs).reshape(
-                world_size * args.batch_size, -1
+            raw_labels = sequence_gather(labels, world_size, 0)
+            stacked_outputs = torch.stack(raw_outputs).reshape(
+                world_size, args.batch_size, -1
             )
-            gathered_inputs = torch.stack(gathered_inputs)
-            gathered_labels = torch.stack(gathered_labels)
-            gather_outputs = gather_outputs.transpose(0, 1).reshape(
+            stacked_inputs = torch.stack(raw_inputs).reshape(
+                world_size, args.batch_size, -1
+            )
+            stacked_labels = torch.stack(raw_labels).reshape(
+                world_size, args.batch_size
+            )
+            gathered_outputs = stacked_outputs.transpose(0, 1).reshape(
                 args.batch_size * world_size, -1
             )
-            gathered_inputs = gathered_inputs.transpose(0, 1).reshape(
+            gathered_inputs = stacked_inputs.transpose(0, 1).reshape(
                 args.batch_size * world_size, -1
             )
-            gathered_labels = gathered_labels.transpose(0, 1).reshape(-1)
+            gathered_labels = stacked_labels.transpose(0, 1).reshape(-1)
         else:
-            gather_outputs = s.reshape(args.batch_size, -1)
+            gathered_outputs = s.reshape(args.batch_size, -1)
             gathered_inputs = input_ids.reshape(args.batch_size, -1)
             gathered_labels = labels
         outputs_string = tokenizer.batch_decode(
-            gather_outputs, skip_special_tokens=True
+            gathered_outputs, skip_special_tokens=True
         )
         inputs_string = tokenizer.batch_decode(
             gathered_inputs, skip_special_tokens=True

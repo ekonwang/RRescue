@@ -6,14 +6,15 @@ import transformers
 # ------------------ torch.distributed ------------------ #
 def sequence_gather(s, world_size, pad_tok_id):
     local_size = torch.tensor(s.size(), device=s.device)
-    all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
-    dist.all_gather(all_sizes, local_size)
-    max_length = max(size[1] for size in all_sizes)
-    length_diff = max_length.item() - local_size[1].item()
-    if length_diff:
-        pad_size = (*s.shape[:-1], length_diff)
-        padding = torch.ones(pad_size, device=s.device, dtype=s.dtype) * pad_tok_id
-        s = torch.concat((s, padding), dim=-1)
+    if len(local_size) > 1:
+        all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
+        dist.all_gather(all_sizes, local_size)
+        max_length = max(size[1] for size in all_sizes)
+        length_diff = max_length.item() - local_size[1].item()
+        if length_diff:
+            pad_size = (*s.shape[:-1], length_diff)
+            padding = torch.ones(pad_size, device=s.device, dtype=s.dtype) * pad_tok_id
+            s = torch.concat((s, padding), dim=-1)
     gathered_s = [torch.ones_like(s) * pad_tok_id for _ in range(world_size)]
     dist.all_gather(gathered_s, s)
 
