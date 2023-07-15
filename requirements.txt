@@ -4,4 +4,3 @@ tokenizers
 sentence-transformers
 datasets
 wandb
-accelerate==0.20.3
