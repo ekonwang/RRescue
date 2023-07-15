@@ -208,6 +208,11 @@ def make_supervised_data_module(
 
 
 def main(rank, args):
+    if os.path.exists(args.out_path) and not args.overwrite:
+        raise ValueError("out_path already exists!!")
+    if not os.path.exists(args.out_path):
+        os.makedirs(args.out_path)
+
     world_size = torch.cuda.device_count()
     if world_size > 1:
         dist.init_process_group("nccl")
@@ -353,7 +358,7 @@ def main(rank, args):
                 )
             all_outputs.append(temp)
 
-        if step >= 1000:  # only select 1k samples for few-shot training
+        if args.truncate and step >= args.truncate - 1:  # only select 1k samples for few-shot training
             break
 
     if rank == 0:
@@ -373,9 +378,11 @@ if __name__ == "__main__":
     parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
     parser.add_argument("--out_path", default="", type=str, help="config path")
     parser.add_argument("--model_max_length", default=512, type=int, help="token length")
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
         "--expansion", type=int, default=0, help="prompt number expansion rate"
     )
+    parser.add_argument("--truncate", type=int, default=None, help="truncate")
     args = parser.parse_args()
 
     local_rank = int(os.environ["LOCAL_RANK"])

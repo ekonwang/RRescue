@@ -15,6 +15,8 @@ from transformers import AutoModel, AutoTokenizer
 def preprocess(text):
     if "entailment" in text or "neutral" in text or "contradiction" in text:
         processed_text = text.split(".", 1)[1].strip()
+    else:
+        processed_text = text
     return processed_text
 
 

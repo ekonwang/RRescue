@@ -26,11 +26,15 @@ if __name__ == "__main__":
             responses = sample["response"]
             label = sample["label"]
             scores = sample["scores"][1:]
+            responses = responses[1:]
             predicted_label_formax = None
-            # 每组两个句子 beam_size = 2
-            for i in range(len(scores)):
-                candidate = labels[i // args.diverse_beam]
-                score_dict[candidate] += scores[i]
+
+            assert len(scores) == len(responses)
+
+            for response, score in zip(responses, scores):
+                for cand_label in labels:
+                    if cand_label in response.split(".", 1)[0].lower():
+                        score_dict[cand_label] = max(score_dict[cand_label], score)
 
             max_score = 0
             for candidate in ["entailment", "neutral", "contradiction"]:
