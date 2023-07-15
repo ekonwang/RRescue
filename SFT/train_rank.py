@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import io
+import os
 import json
 import logging
 from typing import Dict, Optional, Sequence
@@ -8,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 import transformers
+import random
 from transformers import Trainer
 from utils import (safe_save_model_for_hf_trainer,
                    smart_tokenizer_and_embedding_resize, tokenize_fn)
@@ -48,6 +50,7 @@ class DataArguments:
         default=None, metadata={"help": "Path to the training data."}
     )
     stop_response: bool = field(default=False)
+    num_resp: int = field(default=None)
 
 
 @dataclass
@@ -86,6 +89,7 @@ class DataCollatorForSupervisedDataset(object):
 
     tokenizer: transformers.PreTrainedTokenizer
     stop_response: bool
+    num_resp: int
 
     def __call__(self, instances):
         idxs = []
@@ -98,15 +102,25 @@ class DataCollatorForSupervisedDataset(object):
             query = ins["query"]
             responses = ins["responses"]
             scores = ins["scores"]
-            all_scores.append(scores)
-            idxs.append([idx] * len(scores))
 
             query_input_ids = tokenize_fn(query, self.tokenizer)
             query_target = torch.LongTensor(
                 [IGNORE_INDEX] * (query_input_ids.shape[0] - 1)
             )
             dummy_target = torch.LongTensor([IGNORE_INDEX])
-            for r in responses:
+
+            assert self.num_resp == 4
+            if self.num_resp == 4:
+                # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
+                sel_resps = [responses[0], responses[1], responses[3], responses[5]]
+                all_scores.append([scores[0], scores[1], scores[3], scores[5]])
+            elif self.num_resp == 7 or self.num_resp == None:
+                sel_resps = responses
+                all_scores.append(scores)
+            else:
+                raise NotImplementedError
+
+            for r in sel_resps:
                 res_input_ids = tokenize_fn(
                     r + self.tokenizer.eos_token,
                     self.tokenizer,
@@ -116,6 +130,7 @@ class DataCollatorForSupervisedDataset(object):
                 labels.append(
                     torch.cat((query_target, res_input_ids, dummy_target), dim=0)
                 )
+            idxs.append([idx] * len(sel_resps))
 
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
@@ -160,6 +175,7 @@ class RankTrainer(Trainer):
         return -logit_label[max_idx].mean()
 
     def compute_loss(self, model, inputs, return_outputs=False):
+        local_rank = int(os.environ["LOCAL_RANK"])
         logits = model(
             input_ids=inputs.get("input_ids"),
             attention_mask=inputs.get("attention_mask"),
@@ -170,6 +186,8 @@ class RankTrainer(Trainer):
         rrhf_loss = self.rrhf_loss(scores, inputs.get("idxs"), inputs.get("scores"))
         sft_loss = self.sft_loss(logit_label, inputs.get("idxs"), inputs.get("scores"))
         loss = self.args.rrhf_weight * rrhf_loss + sft_loss
+        if local_rank == 0:
+            print(f"rrhf_loss: {rrhf_loss:.5f}, sft_loss: {sft_loss:.5f}")
         return (loss, scores) if return_outputs else loss
 
 
@@ -179,7 +197,7 @@ def make_supervised_data_module(
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = ScoreDataset(tokenizer=tokenizer, data_path=data_args.data_path)
     data_collator = DataCollatorForSupervisedDataset(
-        tokenizer=tokenizer, stop_response=data_args.stop_response
+        tokenizer=tokenizer, stop_response=data_args.stop_response, num_resp=data_args.num_resp
     )
     return dict(
         train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
