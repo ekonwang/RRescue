@@ -1,15 +1,15 @@
 from dataclasses import dataclass, field
 import io
-import os
 import json
 import logging
+import os
+import random
 from typing import Dict, Optional, Sequence
 
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 import transformers
-import random
 from transformers import Trainer
 from utils import (safe_save_model_for_hf_trainer,
                    smart_tokenizer_and_embedding_resize, tokenize_fn)
@@ -109,12 +109,11 @@ class DataCollatorForSupervisedDataset(object):
             )
             dummy_target = torch.LongTensor([IGNORE_INDEX])
 
-            assert self.num_resp == 4
             if self.num_resp == 4:
                 # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
                 sel_resps = [responses[0], responses[1], responses[3], responses[5]]
                 all_scores.append([scores[0], scores[1], scores[3], scores[5]])
-            elif self.num_resp == 7 or self.num_resp == None:
+            elif self.num_resp == 7 or self.num_resp is None:
                 sel_resps = responses
                 all_scores.append(scores)
             else:

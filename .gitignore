@@ -2,6 +2,7 @@
 __pycache__/
 wandb/
 
+*.ipynb
 *.log
 *.zip
 *.sh
