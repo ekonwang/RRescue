@@ -172,6 +172,8 @@ class RankTrainer(Trainer):
         aval = torch.bitwise_and(rw_diff > 0, diff < 0)
         # original aval have aval = aval[0], IDK why, so I change it to aval = aval
         # reference: https://github.com/GanjinZero/RRHF/blob/main/train.py#L251
+        if aval.ndim > 2:
+            aval = aval[0]
         return -diff[aval].sum()
 
     def sft_loss(self, logit_label, idxs, rw_scores):
