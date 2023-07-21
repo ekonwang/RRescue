@@ -90,6 +90,7 @@ class DataCollatorForSupervisedDataset(object):
     tokenizer: transformers.PreTrainedTokenizer
     stop_response: bool
     num_resp: int
+    data_path: str
 
     def __call__(self, instances):
         idxs = []
@@ -109,28 +110,17 @@ class DataCollatorForSupervisedDataset(object):
             )
             dummy_target = torch.LongTensor([IGNORE_INDEX])
 
-            if self.num_resp == 4:
+            assert self.num_resp <= len(responses)
+            if self.num_resp == 4 and "esnli" in self.data_path:
                 # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
                 sel_resps = [responses[0], responses[1], responses[3], responses[5]]
                 all_scores.append([scores[0], scores[1], scores[3], scores[5]])
-            elif self.num_resp == 3:
-                sel_resps = [responses[0]]
-                all_scores.append([scores[0]])
-                # randomly select 2 from the rest, and resps and scores are from the same index
-                sample_idxs = random.sample(list(range(1, len(responses))), 2)
-                sel_resps += [responses[i] for i in sample_idxs]
-                all_scores[-1] += [scores[i] for i in sample_idxs]
-            elif self.num_resp == 2:
-                sel_resps = [responses[0]]
-                all_scores.append([scores[0]])
-                sample_idxs = random.sample(list(range(1, len(responses))), 1)
-                sel_resps += [responses[i] for i in sample_idxs]
-                all_scores[-1] += [scores[i] for i in sample_idxs]
-            elif self.num_resp == 7 or self.num_resp is None:
-                sel_resps = responses
-                all_scores.append(scores)
             else:
-                raise NotImplementedError
+                sel_resps = [responses[0]]
+                all_scores.append([scores[0]])
+                sample_idxs = random.sample(list(range(1, len(responses))), self.num_resp - 1)
+                sel_resps += [responses[i] for i in sample_idxs]
+                all_scores[-1] += [scores[i] for i in sample_idxs]
 
             for r in sel_resps:
                 res_input_ids = tokenize_fn(
@@ -179,7 +169,9 @@ class RankTrainer(Trainer):
     def rrhf_loss(self, scores, idxs, rw_scores):
         diff = scores.unsqueeze(0) - scores.unsqueeze(-1)  # b * b
         rw_diff = rw_scores.unsqueeze(0) - rw_scores.unsqueeze(-1)  # b * b
-        aval = torch.bitwise_and(rw_diff > 0, diff < 0)[0]
+        aval = torch.bitwise_and(rw_diff > 0, diff < 0)
+        # original aval have aval = aval[0], IDK why, so I change it to aval = aval
+        # reference: https://github.com/GanjinZero/RRHF/blob/main/train.py#L251
         return -diff[aval].sum()
 
     def sft_loss(self, logit_label, idxs, rw_scores):
@@ -209,7 +201,7 @@ def make_supervised_data_module(
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = ScoreDataset(tokenizer=tokenizer, data_path=data_args.data_path)
     data_collator = DataCollatorForSupervisedDataset(
-        tokenizer=tokenizer, stop_response=data_args.stop_response, num_resp=data_args.num_resp
+        tokenizer=tokenizer, stop_response=data_args.stop_response, num_resp=data_args.num_resp, data_path=data_args.data_path
     )
     return dict(
         train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
