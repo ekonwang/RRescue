@@ -113,6 +113,19 @@ class DataCollatorForSupervisedDataset(object):
                 # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
                 sel_resps = [responses[0], responses[1], responses[3], responses[5]]
                 all_scores.append([scores[0], scores[1], scores[3], scores[5]])
+            elif self.num_resp == 3:
+                sel_resps = [responses[0]]
+                all_scores.append([scores[0]])
+                # randomly select 2 from the rest, and resps and scores are from the same index
+                sample_idxs = random.sample(list(range(1, len(responses))), 2)
+                sel_resps += [responses[i] for i in sample_idxs]
+                all_scores[-1] += [scores[i] for i in sample_idxs]
+            elif self.num_resp == 2:
+                sel_resps = [responses[0]]
+                all_scores.append([scores[0]])
+                sample_idxs = random.sample(list(range(1, len(responses))), 1)
+                sel_resps += [responses[i] for i in sample_idxs]
+                all_scores[-1] += [scores[i] for i in sample_idxs]
             elif self.num_resp == 7 or self.num_resp is None:
                 sel_resps = responses
                 all_scores.append(scores)
