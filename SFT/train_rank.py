@@ -65,6 +65,8 @@ class TrainingArguments(transformers.TrainingArguments):
     )
     rrhf_weight: float = field(default=100.0)
     length_penalty: float = field(default=1.0)
+    peer: bool = field(default=False)
+    peer_alpha: float = field(default=0.5)
 
 
 class ScoreDataset(Dataset):
@@ -112,7 +114,7 @@ class DataCollatorForSupervisedDataset(object):
 
             assert self.num_resp <= len(responses)
             if self.num_resp == 4 and "esnli" in self.data_path:
-                # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
+                ## choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
                 sel_resps = [responses[0], responses[1], responses[3], responses[5]]
                 all_scores.append([scores[0], scores[1], scores[3], scores[5]])
             else:
@@ -167,18 +169,33 @@ class RankTrainer(Trainer):
         return scores
 
     def rrhf_loss(self, scores, idxs, rw_scores):
-        diff = scores.unsqueeze(0) - scores.unsqueeze(-1)  # b * b
-        rw_diff = rw_scores.unsqueeze(0) - rw_scores.unsqueeze(-1)  # b * b
-        aval = torch.bitwise_and(rw_diff > 0, diff < 0)
-        # original aval have aval = aval[0], IDK why, so I change it to aval = aval
-        # reference: https://github.com/GanjinZero/RRHF/blob/main/train.py#L251
-        if aval.ndim > 2:
-            aval = aval[0]
-        return -diff[aval].sum()
+        if rw_scores.shape[0] == 2:
+            # --- peer pos ---#
+            assert self.args.peer is True
+            num_resp = rw_scores.shape[1]
+            pos = self.rrhf_loss(scores[:num_resp], idxs[:num_resp], rw_scores[0].unsqueeze(0))
+            # --- peer neg ---#
+            # make random ranks for the peer, except for the first one
+            ranks = list(range(num_resp, 0, -1))
+            random.shuffle(ranks[1:])
+            rw_scores[1] = torch.tensor(ranks)
+            neg = self.rrhf_loss(scores[num_resp:], idxs[num_resp:], rw_scores[1].unsqueeze(0))
+            return pos - self.args.peer_alpha * neg
+        else:
+            assert rw_scores.shape[0] == 1
+            assert rw_scores.shape[1] == scores.shape[0]
+            diff = scores.unsqueeze(0) - scores.unsqueeze(-1)  # b * b
+            rw_diff = rw_scores.unsqueeze(0) - rw_scores.unsqueeze(-1)  # b * b
+            aval = torch.bitwise_and(rw_diff > 0, diff < 0)
+            # original aval have aval = aval[0], IDK why, so I change it to aval = aval
+            # reference: https://github.com/GanjinZero/RRHF/blob/main/train.py#L251
+            if aval.ndim > 2:
+                aval = aval[0]
+            return -diff[aval].sum()
 
     def sft_loss(self, logit_label, idxs, rw_scores):
-        max_idx = torch.argmax(rw_scores)
-        return -logit_label[max_idx].mean()
+        # always keep the first response the most desired one
+        return -logit_label[0].mean()
 
     def compute_loss(self, model, inputs, return_outputs=False):
         local_rank = int(os.environ["LOCAL_RANK"])
@@ -215,6 +232,11 @@ def train():
         (ModelArguments, DataArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    if training_args.peer:
+        # when use peer, we need to double the epoch to compensate the loss of the half of data
+        training_args.num_train_epochs = 2 * training_args.num_train_epochs
+        training_args.per_device_train_batch_size = 2  # one for positive training, one for negative training
+        print(f">>> using peer loss function, to compensate the loss of data. now epoch: {training_args.num_train_epochs}, batch size: {training_args.per_device_train_batch_size}")
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_args.model_name_or_path,
