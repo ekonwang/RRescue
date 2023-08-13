@@ -44,7 +44,7 @@ def main(args):
                             hypothesis=example["hypothesis"],
                             label=la,
                             idx=i,
-                            explaination=example["explanation_1"],
+                            explanation=example["explanation_1"],
                         )
                         data["esnli"][la].append(example_dict)
                     if len(data["esnli"][la]) >= args.examples:
@@ -55,15 +55,15 @@ def main(args):
             for i in range(len(gsm8k_dev)):
                 example = gsm8k_dev[i]
                 question = example["question"].replace("\u2019", "'")
-                explaination, answer = (
+                explanation, answer = (
                     example["answer"].replace("\u2019", "'").rsplit("####", 1)
                 )
-                if len(explaination) > 100:
+                if len(explanation) > 100:
                     continue
                 example_dict = dict(
                     question=question,
                     answer=answer.strip(),
-                    explaination=explaination.strip(),
+                    explanation=explanation.strip(),
                     idx=i,
                 )
                 data["gsm8k"].append(example_dict)
@@ -88,9 +88,9 @@ def main(args):
             la_example0 = all_examples[args.input][la][0]
             human = f"Human: Premise is \"{la_example0['premise']}\"\nHypothesis is \"{la_example0['hypothesis']}\"\n\n"
             if args.e_first:
-                assistant = f"Assistant: {la_example0['explaination']} #### {la_example0['label']}\n\n"
+                assistant = f"Assistant: {la_example0['explanation']} #### {la_example0['label']}\n\n"
             else:
-                assistant = f"Assistant: {la_example0['label']} #### {la_example0['explaination']}\n\n"
+                assistant = f"Assistant: {la_example0['label']} #### {la_example0['explanation']}\n\n"
             examples += human + assistant
         input = (
             'Human: Premise is "{premise}"\nHypothesis is "{hypothesis}"\n\nAssistant:'
@@ -103,11 +103,11 @@ def main(args):
             human = f"Human: {example['question']}\n\n"
             if args.e_first:
                 assistant = (
-                    f"Assistant: {example['explaination']} #### {example['answer']}\n\n"
+                    f"Assistant: {example['explanation']} #### {example['answer']}\n\n"
                 )
             else:
                 assistant = (
-                    f"Assistant: {example['answer']} #### {example['explaination']}\n\n"
+                    f"Assistant: {example['answer']} #### {example['explanation']}\n\n"
                 )
             examples += human + assistant
             if i + 1 >= args.examples:

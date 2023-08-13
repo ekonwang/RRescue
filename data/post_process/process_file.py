@@ -48,7 +48,7 @@ if __name__ == "__main__":
                 buffer.append(now_samples)
                 now_samples = dict()
                 now_idx = index
-            if now_samples.get("prompt", "") == "":
+            if now_samples.get("inputs", "") == "":
                 # ----- dataset specific ----- #
                 if args.dataset == "esnli":
                     explaination = dataset[index]["explanation_1"]
@@ -77,7 +77,6 @@ if __name__ == "__main__":
                 now_samples["inputs"] = inputs
 
                 # ----- general ----- #
-                now_samples["prompt"] = prompt
                 now_samples["explainations"] = []
                 now_samples["raw_responses"] = []
                 now_samples["responses"] = []

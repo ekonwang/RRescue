@@ -4,3 +4,4 @@ tokenizers
 sentence-transformers
 datasets
 wandb
+openai

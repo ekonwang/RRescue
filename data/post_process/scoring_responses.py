@@ -57,7 +57,6 @@ if __name__ == "__main__":
 
     for idx in tqdm(range(len(candidates))):
         label = candidates[idx]["label"]
-        prompt = candidates[idx]["prompt"]
         inputs = candidates[idx]["inputs"]
         gt_explaination = candidates[idx]["explaination"]
         gt_response = candidates[idx]["gt_response"]

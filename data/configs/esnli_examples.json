@@ -1,0 +1,73 @@
+{
+    "esnli": {
+        "entailment": [
+            {
+                "premise": "Two women are embracing while holding to go packages.",
+                "hypothesis": "Two woman are holding packages.",
+                "label": "entailment",
+                "idx": 1,
+                "explanation": "Saying the two women are holding packages is a way to paraphrase that the packages they are holding are to go packages."
+            },
+            {
+                "premise": "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink.",
+                "hypothesis": "Two kids in numbered jerseys wash their hands.",
+                "label": "entailment",
+                "idx": 3,
+                "explanation": "Young children are kids. Jerseys with number 9 and 2 are numbered jerseys."
+            },
+            {
+                "premise": "A man selling donuts to a customer during a world exhibition event held in the city of Angeles",
+                "hypothesis": "A man selling donuts to a customer.",
+                "label": "entailment",
+                "idx": 8,
+                "explanation": "A man selling donuts is selling donuts."
+            }
+        ],
+        "neutral": [
+            {
+                "premise": "Two women are embracing while holding to go packages.",
+                "hypothesis": "The sisters are hugging goodbye while holding to go packages after just eating lunch.",
+                "label": "neutral",
+                "idx": 0,
+                "explanation": "The to go packages may not be from lunch."
+            },
+            {
+                "premise": "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink.",
+                "hypothesis": "Two kids at a ballgame wash their hands.",
+                "label": "neutral",
+                "idx": 4,
+                "explanation": "Two kids in jerseys watching their hands are not necessarily at  a ballgame."
+            },
+            {
+                "premise": "A man selling donuts to a customer during a world exhibition event held in the city of Angeles",
+                "hypothesis": "A man selling donuts to a customer during a world exhibition event while people wait in line behind him.",
+                "label": "neutral",
+                "idx": 7,
+                "explanation": "Just because a customer buys donuts at a world exhibition event doesn't mean people are waiting in line behind him."
+            }
+        ],
+        "contradiction": [
+            {
+                "premise": "Two women are embracing while holding to go packages.",
+                "hypothesis": "The men are fighting outside a deli.",
+                "label": "contradiction",
+                "idx": 2,
+                "explanation": "In the first sentence there is an action of affection between women while on the second sentence there is a fight between men."
+            },
+            {
+                "premise": "Two young children in blue jerseys, one with the number 9 and one with the number 2 are standing on wooden steps in a bathroom and washing their hands in a sink.",
+                "hypothesis": "Two kids in jackets walk to school.",
+                "label": "contradiction",
+                "idx": 5,
+                "explanation": "If you're wearing a jacket, you won't be able to see the blue jerseys. When you're standing in a bathroom, you cannot be walking to school at the same time."
+            },
+            {
+                "premise": "A man selling donuts to a customer during a world exhibition event held in the city of Angeles",
+                "hypothesis": "A woman drinks her coffee in a small cafe.",
+                "label": "contradiction",
+                "idx": 6,
+                "explanation": "There can be either a man or a woman, who can be either selling donuts or drinking coffee."
+            }
+        ]
+    }
+}
