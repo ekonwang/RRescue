@@ -69,5 +69,11 @@ chmod +x gen_response.sh
     - [x] SFT 代码以及 RankSFT 代码
     - [x] 生成 1k 条 proof-of-concept 训练样本数据
     - [x] 八卡训练模型保存 checkpoint
-    - [ ] 分别 inference 并比较 E-SNLI 数据集 performance
-    - [ ] 看论文思考下一步方向
+    - [x] 分别 inference 并比较 E-SNLI 数据集 performance
+    - [x] 看论文思考下一步方向
+
+## polish the paper
+
+- [ ] RankRL 模型是否具备泛化到其他未见过task
+
+- [ ] RankRL 是否能够一定程度上解决无关 context 问题

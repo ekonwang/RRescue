@@ -50,7 +50,8 @@ class DataArguments:
         default=None, metadata={"help": "Path to the training data."}
     )
     stop_response: bool = field(default=False)
-    num_resp: int = field(default=None)
+    num_resp: int = field(default=4)
+    prompt_file: str = field(default=None)
 
 
 @dataclass
@@ -89,8 +90,7 @@ class DataCollatorForSupervisedDataset(object):
 
     tokenizer: transformers.PreTrainedTokenizer
     stop_response: bool
-    num_resp: int
-    data_path: str
+    data_args: DataArguments
 
     def __call__(self, instances):
         idxs = []
@@ -99,9 +99,11 @@ class DataCollatorForSupervisedDataset(object):
         score_mask = []
         labels = []
         for idx, ins in enumerate(instances):
+            with open(self.data_args.prompt_file, "r") as f:
+                prompt = json.load(f)[0]
             ins = ins["input_ids"]  # hack
-            query = ins["query"]
-            responses = ins["responses"]
+            query = prompt.format_map(ins["inputs"])
+            responses = ins["synthesized_responses"]
             scores = ins["scores"]
 
             query_input_ids = tokenize_fn(query, self.tokenizer)
@@ -110,17 +112,14 @@ class DataCollatorForSupervisedDataset(object):
             )
             dummy_target = torch.LongTensor([IGNORE_INDEX])
 
-            assert self.num_resp <= len(responses)
-            if self.num_resp == 4 and "esnli" in self.data_path:
-                # choose dataset given one, plus one resp each for "entailment", "neutral" and "contradiction" label
-                sel_resps = [responses[0], responses[1], responses[3], responses[5]]
-                all_scores.append([scores[0], scores[1], scores[3], scores[5]])
-            else:
-                sel_resps = [responses[0]]
-                all_scores.append([scores[0]])
-                sample_idxs = random.sample(list(range(1, len(responses))), self.num_resp - 1)
-                sel_resps += [responses[i] for i in sample_idxs]
-                all_scores[-1] += [scores[i] for i in sample_idxs]
+            assert self.data_args.num_resp <= len(responses)
+            sel_resps = [responses[0]]
+            all_scores.append([scores[0]])
+            sample_idxs = random.sample(
+                list(range(1, len(responses))), self.data_args.num_resp - 1
+            )
+            sel_resps += [responses[i] for i in sample_idxs]
+            all_scores[-1] += [scores[i] for i in sample_idxs]
 
             for r in sel_resps:
                 res_input_ids = tokenize_fn(
@@ -176,9 +175,10 @@ class RankTrainer(Trainer):
             aval = aval[0]
         return -diff[aval].sum()
 
-    def sft_loss(self, logit_label, idxs, rw_scores):
+    def sft_loss(self, logit_label, labels, rw_scores):
         max_idx = torch.argmax(rw_scores)
-        return -logit_label[max_idx].mean()
+        mask = (labels[max_idx] != -100).float()
+        return -logit_label[max_idx].sum() / mask.sum()
 
     def compute_loss(self, model, inputs, return_outputs=False):
         local_rank = int(os.environ["LOCAL_RANK"])
@@ -187,12 +187,15 @@ class RankTrainer(Trainer):
             attention_mask=inputs.get("attention_mask"),
         ).logits  # (batch * cand) * L * V
         logits = F.log_softmax(logits, dim=-1)
-        logit_label = self.gather_logits_labels(logits, inputs.get("labels"))
+        logit_label = self.gather_logits_labels(logits, inputs.get("labels").clone())
         scores = self.get_score(logit_label, inputs.get("labels"))
         rrhf_loss = self.rrhf_loss(scores, inputs.get("idxs"), inputs.get("scores"))
-        sft_loss = self.sft_loss(logit_label, inputs.get("idxs"), inputs.get("scores"))
+        sft_loss = self.sft_loss(
+            logit_label, inputs.get("labels"), inputs.get("scores")
+        )
         loss = self.args.rrhf_weight * rrhf_loss + sft_loss
         if local_rank == 0:
+            # import pdb; pdb.set_trace()
             print(f"rrhf_loss: {rrhf_loss:.5f}, sft_loss: {sft_loss:.5f}")
         return (loss, scores) if return_outputs else loss
 
@@ -203,7 +206,7 @@ def make_supervised_data_module(
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = ScoreDataset(tokenizer=tokenizer, data_path=data_args.data_path)
     data_collator = DataCollatorForSupervisedDataset(
-        tokenizer=tokenizer, stop_response=data_args.stop_response, num_resp=data_args.num_resp, data_path=data_args.data_path
+        tokenizer=tokenizer, stop_response=data_args.stop_response, data_args=data_args
     )
     return dict(
         train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator

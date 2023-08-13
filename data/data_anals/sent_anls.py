@@ -15,7 +15,11 @@ if __name__ == "__main__":
     args = parse_args()
     file = f"{args.output}/scored_beam4_0.json"
     labels = ["entailment", "neutral", "contradiction"]
-    label_score_dict = {"entailment": list(), "neutral": list(), "contradiction": list()}
+    label_score_dict = {
+        "entailment": list(),
+        "neutral": list(),
+        "contradiction": list(),
+    }
 
     with open(file, "r") as f:
         samples = json.load(f)
@@ -45,5 +49,7 @@ if __name__ == "__main__":
             label_score_dict[label].append(temp_sd[label])
 
     for label in label_score_dict.keys():
-        label_score_dict[label] = sum(label_score_dict[label]) / len(label_score_dict[label])
+        label_score_dict[label] = sum(label_score_dict[label]) / len(
+            label_score_dict[label]
+        )
     print(label_score_dict)

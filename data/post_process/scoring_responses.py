@@ -10,14 +10,7 @@ import torch
 from torch import nn
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
-
-
-def preprocess(text):
-    if "entailment" in text or "neutral" in text or "contradiction" in text:
-        processed_text = text.split(".", 1)[1].strip()
-    else:
-        processed_text = text
-    return processed_text
+import utils
 
 
 def create_reward_fn():
@@ -32,7 +25,6 @@ def create_reward_fn():
                 results.append(sim)
             return results
         else:
-            candidate = preprocess(candidate)
             embed = sbert.encode(candidate, convert_to_tensor=True).to(sbert.device)
             gt_embed = sbert.encode(gt_explaination, convert_to_tensor=True).to(
                 sbert.device
@@ -50,11 +42,6 @@ def parse_args():
     parser.add_argument("--output_file", type=str)
     parser.add_argument("--expansion", type=int, required=True)
     args = parser.parse_args()
-
-    if args.expansion > 1:
-        args.expansion = 3
-    else:
-        args.expansion = 1
     return args
 
 
@@ -63,42 +50,46 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.device_id)
     with open(args.input_file, "r") as f:
         candidates = json.load(f)
-    finals = []
+    buffer = []
     # proto sample's reponses number
-    response_num = len(candidates[0][1])
+    response_num = len(candidates[0]["responses"])
     reward_fn = create_reward_fn()
 
-    for idx in tqdm(range(len(candidates) // args.expansion)):
-        prompts = list()
-        candidate = list()
-        gt_explaination = candidates[idx * args.expansion][2]
-        label = candidates[idx * args.expansion][3]
-        for inner in range(args.expansion):
-            candidate.append(candidates[idx * args.expansion + inner][1])
-            prompts.append(candidates[idx * args.expansion + inner][0])
-        candidate = sum(candidate, [])
-        results_scores = reward_fn(candidate, gt_explaination)
-        human_idx = prompts[-1].rfind("Human:")
-        question_part = prompts[-1][human_idx:]
+    for idx in tqdm(range(len(candidates))):
+        label = candidates[idx]["label"]
+        prompt = candidates[idx]["prompt"]
+        inputs = candidates[idx]["inputs"]
+        gt_explaination = candidates[idx]["explaination"]
+        gt_response = candidates[idx]["gt_response"]
+        reponses = candidates[idx]["responses"]
+        explainations = candidates[idx]["explainations"]
+        explainations = [gt_explaination] + explainations
+        scores = reward_fn(explainations, gt_explaination)
 
-        assert args.expansion == len(prompts)
-        assert len(results_scores) == args.expansion * response_num
+        # rank the responses with scores descending order
+        scores, explainations = zip(*sorted(zip(scores, explainations), reverse=True))
+        scores = list(scores)
+        explainations = list(explainations)
+        synthesized_responses = [
+            utils.make_response(
+                dict(
+                    explaination=exp,
+                    label=label,
+                    first="explaination",
+                    format="special",
+                )
+            )
+            for exp in explainations
+        ]
 
-        # add real human response into candidates
-        real_human = "It's {}. Because {}.".format(label, gt_explaination)
-        candidate = [real_human] + candidate
-        results_scores = [1.0] + results_scores
-
-        finals.append(
+        buffer.append(
             dict(
-                prompt=prompts,
-                question=question_part,
-                response=candidate,
-                explaination=gt_explaination,
-                scores=results_scores,
-                label=label,
+                inputs=inputs,
+                explainations=explainations,
+                synthesized_responses=synthesized_responses,
+                scores=scores,
             )
         )
 
     with open(args.output_file, "w") as f:
-        json.dump(finals, f, indent=2)
+        json.dump(buffer, f, indent=2)

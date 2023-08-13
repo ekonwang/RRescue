@@ -20,6 +20,7 @@ DEFAULT_PAD_TOKEN = "[PAD]"
 DEFAULT_EOS_TOKEN = "</s>"
 DEFAULT_BOS_TOKEN = "</s>"
 DEFAULT_UNK_TOKEN = "</s>"
+DATA = os.path.dirname(os.path.abspath(__file__))
 
 
 def smart_tokenizer_and_embedding_resize(
@@ -81,54 +82,55 @@ class SupervisedDataset(Dataset):
 
     def __init__(
         self,
-        data_path: str,
         tokenizer: transformers.PreTrainedTokenizer,
-        expansion: int = 0,
+        args,
     ):
         super(SupervisedDataset, self).__init__()
 
-        self.dataset_for_eval = load_dataset(data_path)["train"]
-        self.data_path = data_path
+        if args.data_path == "gsm8k":
+            self.dataset_original = load_dataset(args.data_path, "main")["train"]
+        else:
+            self.dataset_original = load_dataset(args.data_path)["train"]
+        self.data_path = args.data_path
         self.tokenizer = tokenizer
         self.input_ids = []
-        self.expansion = expansion
+        if args.truncate:
+            self.dataset_original = [
+                self.dataset_original[i]
+                for i in range(min(args.truncate, len(self.dataset_original)))
+            ]
 
-        contexts_file = os.path.dirname(os.path.abspath(__file__)) + "/contexts.json"
-        with open(contexts_file, "r") as f:
-            self.contexts = json.load(f)
+        # --- prompt --- #
+        prompt_file = os.path.join(args.prompt_file)
+        with open(prompt_file, "r") as f:
+            prompt_templates = json.load(f)
 
+        def add_prompt(data, i):
+            for template in prompt_templates:
+                prompt = template.format_map(data)
+                index = i
+                self.dataset_for_eval.append(dict(prompt=prompt, index=index))
+
+        self.dataset_for_eval = list()
         if self.data_path == "esnli":
-            """
-            Human: Premise is <premise> and hypothesis is <hypothesis>\n\nAssistant: It\'s <result>.  <explaination>\n\n
-            """
-            contexts = self.contexts["esnli"]
-            self.entailment_context = contexts["entailment"]
-            self.neutral_context = contexts["neutral"]
-            self.contradiction_context = contexts["contradiction"]
-            self.comb_1_context = contexts["comp_1"]
-            self.comb_2_context = contexts["comp_2"]
-            self.comb_3_context = contexts["comp_3"]
+            for i, example in enumerate(self.dataset_original):
+                data = dict(
+                    premise=example["premise"], hypothesis=example["hypothesis"]
+                )
+                add_prompt(data, i)
+        elif self.data_path == "gsm8k":
+            for i, example in enumerate(self.dataset_original):
+                data = dict(question=example["question"])
+                add_prompt(data, i)
 
     def __len__(self):
         return len(self.dataset_for_eval)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         item = self.dataset_for_eval[i]
-        if self.data_path == "Dahoas/rm-static":
-            source = item["prompt"]
-        elif self.data_path == "esnli":
-            premise = item["premise"]
-            hypothesis = item["hypothesis"]
-            query = f'Human: Premise is "{premise}" and hypothesis is "{hypothesis}"\n\nAssistant: '
-
-            if self.expansion > 1:
-                source = list()
-                source.append(self.entailment_context + query)
-                source.append(self.neutral_context + query)
-                source.append(self.contradiction_context + query)
-        else:
-            raise NotImplementedError()
-        return dict(input_ids=_tokenize_fn(source, self.tokenizer), id=i)
+        return dict(
+            input_ids=_tokenize_fn(item["prompt"], self.tokenizer), id=item["index"]
+        )
 
 
 def padding(inputs, padding_token, cutoff=None):
@@ -175,14 +177,11 @@ class DataCollatorForSupervisedDataset(object):
             for instance in instances:
                 value = instance[proto_key]
                 value_list.append(value)
-            if isinstance(value, list):
-                value_list = sum(value_list, list())
+            if isinstance(value, torch.Tensor):
                 results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=self.tokenizer.model_max_length
-                )
-            elif isinstance(value, torch.Tensor):
-                results[proto_key] = padding(
-                    value_list, padding_token=self.tokenizer.pad_token_id, cutoff=self.tokenizer.model_max_length
+                    value_list,
+                    padding_token=self.tokenizer.pad_token_id,
+                    cutoff=self.tokenizer.model_max_length,
                 )
             elif isinstance(value, int) or isinstance(value, float):
                 results[proto_key] = torch.tensor(value_list)
@@ -197,23 +196,22 @@ class DataCollatorForSupervisedDataset(object):
 
 
 def make_supervised_data_module(
-    tokenizer: transformers.PreTrainedTokenizer, data_path, expansion=0
+    tokenizer: transformers.PreTrainedTokenizer, args
 ) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
-    eval_dataset = SupervisedDataset(
-        tokenizer=tokenizer, data_path=data_path, expansion=expansion
-    )
+    eval_dataset = SupervisedDataset(tokenizer=tokenizer, args=args)
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return eval_dataset, data_collator
 
 
 def main(rank, args):
     if os.path.exists(args.out_path) and not args.overwrite:
+        print(args.out_path)
         raise ValueError("out_path already exists!!")
     if not os.path.exists(args.out_path):
         os.makedirs(args.out_path)
 
-    world_size = torch.cuda.device_count()
+    world_size = 1
     if world_size > 1:
         dist.init_process_group("nccl")
     base_model = args.base_model
@@ -222,12 +220,9 @@ def main(rank, args):
 
     print(f"{data_path} loading..")
     tokenizer = LlamaTokenizer.from_pretrained(
-        base_model,
-        model_max_length=args.model_max_length
+        base_model, model_max_length=args.model_max_length
     )
-    eval_dataset, data_collator = make_supervised_data_module(
-        tokenizer, data_path, expansion=args.expansion
-    )
+    eval_dataset, data_collator = make_supervised_data_module(tokenizer, args=args)
     print(f"{data_path} load completed!!")
 
     print(f"{base_model} loading..")
@@ -291,14 +286,11 @@ def main(rank, args):
         max_new_tokens=128,
         num_return_sequences=args.diverse_beam,
     )
-    if args.expansion > 1:
-        args.expansion = 3
-    else:
-        args.expansion = 1
     all_outputs = []
-    for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
+    for step, batch in enumerate(tqdm(dataloader)):
         input_ids = batch["input_ids"].to(model.device)
         attention_mask = batch["attention_mask"].to(model.device)
+        ids = batch["id"].tolist()
         if step == 0:
             print(input_ids.size(0))
             print(input_ids[0])
@@ -322,22 +314,18 @@ def main(rank, args):
                 input_ids, world_size, tokenizer.pad_token_id
             )
             gather_outputs = torch.stack(gather_outputs).reshape(
-                world_size, batch_size, args.expansion * args.diverse_beam, -1
+                world_size, batch_size, args.diverse_beam, -1
             )
             gathered_inputs = torch.stack(gathered_inputs)
             gather_outputs = gather_outputs.transpose(0, 1).reshape(
-                batch_size * world_size * args.expansion * args.diverse_beam, -1
+                batch_size * world_size * args.diverse_beam, -1
             )
             gathered_inputs = gathered_inputs.transpose(0, 1).reshape(
-                batch_size * world_size * args.expansion, -1
+                batch_size * world_size * -1
             )
         else:
-            gather_outputs = s.reshape(
-                batch_size * world_size * args.expansion * args.diverse_beam, -1
-            )
-            gathered_inputs = input_ids.reshape(
-                batch_size * world_size * args.expansion, -1
-            )
+            gather_outputs = s.reshape(batch_size * world_size * args.diverse_beam, -1)
+            gathered_inputs = input_ids.reshape(batch_size * world_size, -1)
         outputs_string = tokenizer.batch_decode(
             gather_outputs, skip_special_tokens=True
         )
@@ -354,16 +342,12 @@ def main(rank, args):
                         outputs_string[args.diverse_beam * idx + i].replace(
                             inputs_string[idx], ""
                         ),
+                        ids[idx],
                     ]
                 )
             all_outputs.append(temp)
 
-        if args.truncate and step >= args.truncate - 1:  # only select 1k samples for few-shot training
-            break
-
     if rank == 0:
-        import json
-
         dataset_name = data_path.split("/")[-1]
         with open(args.out_path + f"/raw_generation_{dataset_name}.json", "w") as f:
             json.dump(all_outputs, f, indent=4)
@@ -371,19 +355,22 @@ def main(rank, args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parameters")
+    parser.add_argument("--prompt_file", default="", type=str, help="prompt file")
     parser.add_argument("--base_model", default="", type=str, help="model path")
     parser.add_argument("--data_path", default="", type=str, help="config path")
     parser.add_argument("--batch_size", type=int, default=0, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
     parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
     parser.add_argument("--out_path", default="", type=str, help="config path")
-    parser.add_argument("--model_max_length", default=512, type=int, help="token length")
-    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
-        "--expansion", type=int, default=0, help="prompt number expansion rate"
+        "--model_max_length", default=512, type=int, help="token length"
     )
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--truncate", type=int, default=None, help="truncate")
     args = parser.parse_args()
 
-    local_rank = int(os.environ["LOCAL_RANK"])
+    if torch.cuda.device_count() > 1:
+        local_rank = int(os.environ["LOCAL_RANK"])
+    else:
+        local_rank = 0
     main(local_rank, args)

@@ -6,14 +6,15 @@ import transformers
 # ------------------ torch.distributed ------------------ #
 def sequence_gather(s, world_size, pad_tok_id):
     local_size = torch.tensor(s.size(), device=s.device)
-    all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
-    dist.all_gather(all_sizes, local_size)
-    max_length = max(size[1] for size in all_sizes)
-    length_diff = max_length.item() - local_size[1].item()
-    if length_diff:
-        pad_size = (*s.shape[:-1], length_diff)
-        padding = torch.ones(pad_size, device=s.device, dtype=s.dtype) * pad_tok_id
-        s = torch.concat((s, padding), dim=-1)
+    if len(local_size) > 1:
+        all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
+        dist.all_gather(all_sizes, local_size)
+        max_length = max(size[1] for size in all_sizes)
+        length_diff = max_length.item() - local_size[1].item()
+        if length_diff:
+            pad_size = (*s.shape[:-1], length_diff)
+            padding = torch.ones(pad_size, device=s.device, dtype=s.dtype) * pad_tok_id
+            s = torch.concat((s, padding), dim=-1)
     gathered_s = [torch.ones_like(s) * pad_tok_id for _ in range(world_size)]
     dist.all_gather(gathered_s, s)
 
@@ -48,31 +49,6 @@ def tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer, max_len=No
         )
         input_ids = tokenized.input_ids[0]
         return input_ids
-
-
-def _tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
-    """Tokenize a list of strings."""
-    tokenized_list = [
-        tokenizer(
-            text,
-            return_tensors="pt",
-            padding="longest",
-            max_length=tokenizer.model_max_length,
-            truncation=True,
-        )
-        for text in strings
-    ]
-    input_ids = labels = [tokenized.input_ids[0] for tokenized in tokenized_list]
-    input_ids_lens = labels_lens = [
-        tokenized.input_ids.ne(tokenizer.pad_token_id).sum().item()
-        for tokenized in tokenized_list
-    ]
-    return dict(
-        input_ids=input_ids,
-        labels=labels,
-        input_ids_lens=input_ids_lens,
-        labels_lens=labels_lens,
-    )
 
 
 def stop_response(res):
@@ -118,8 +94,3 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
         cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
-
-
-# ------------------ model loading ---------------------- #
-def load_llama2_from_disk():
-    pass
