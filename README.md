@@ -72,8 +72,20 @@ chmod +x gen_response.sh
     - [x] 分别 inference 并比较 E-SNLI 数据集 performance
     - [x] 看论文思考下一步方向
 
-## polish the paper
+## partial rank
 
-- [ ] RankRL 模型是否具备泛化到其他未见过task
+partial rank 是降噪的一种手段，但是目前的 partial rank 仅仅是一种 heuristic，需要进一步验证其可行性。
+
+- [x] 初步验证 partial rank 的可行性
+
+- [ ] 生成多种来源的 responses，考察 responses number 以及 reponses source 对于方法的影响。
+
+可以考虑一下模型的输出：
+
+- [ ] alpaca-lora-7b
+- [ ] gpt-3.5-turbo
+- [ ] Llama2-7b-chat
+
+## polish the paper
 
 - [ ] RankRL 是否能够一定程度上解决无关 context 问题
