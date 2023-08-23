@@ -1,5 +1,7 @@
 ## setup
 
+This is a revised-version of the original code from branch master.
+
 ```bash
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 git submodule update --init --recursive
