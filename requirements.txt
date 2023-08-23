@@ -1,0 +1,7 @@
+numpy
+sentencepiece
+tokenizers
+sentence-transformers
+datasets
+wandb
+openai

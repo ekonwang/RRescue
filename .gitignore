@@ -1,0 +1,9 @@
+*output*
+__pycache__/
+wandb/
+
+*.ipynb
+*.log
+*.zip
+*.sh
+*.json
