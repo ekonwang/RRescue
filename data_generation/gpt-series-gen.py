@@ -162,6 +162,8 @@ if __name__ == "__main__":
     raw_path = os.path.join(args.output_root, args.dataset, f"{args.model_name}.json")
     if args.num_samples >= 1000:
         output_path = raw_path.replace(".json", f"-samples-{args.num_samples//1000}k.json")
+    else:
+        output_path = raw_path
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(save_list, f, indent=4)
