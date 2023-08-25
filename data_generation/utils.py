@@ -1,5 +1,7 @@
-esnli_label_map = {0: "entailment", 1: "neutral", 2: "contradiction"}
+import re
 
+esnli_label_map = {0: "entailment", 1: "neutral", 2: "contradiction"}
+unk_label = "<unk>"
 # TODO: strip out useless functions
 
 def stop_response(res):
@@ -11,6 +13,9 @@ def stop_response(res):
 
 
 def strip_response(response):
+    # use re to match a the pattern like this:
+    # ```{sentence} ### {one-word-label}```
+
     if isinstance(response, str):
         response = response.strip(' `\n')
         return response
@@ -34,7 +39,22 @@ def parse_response(response, first="explanation"):
     assert first in ["explanation", "label"]
     splits = response.strip(' `').split("####")
     splits = [s.strip() for s in splits]
-    if first == "explanation":
-        return dict(explanation=splits[0], label=splits[1])
-    else:
-        return dict(explanation=splits[1], label=splits[0])
+    try:
+        if first == "explanation":
+            return dict(explanation=splits[0], label=splits[1])
+        else:
+            return dict(explanation=splits[1], label=splits[0])
+    except IndexError:
+        print(f"Invalid response: {response}")
+        return dict(explanation=None, label=unk_label)
+    
+
+def process_esnli(data_dict, index):
+    # process data loading from huggingface repo
+    return dict(
+        premise=data_dict["premise"],
+        hypothesis=data_dict["hypothesis"],
+        label=esnli_label_map[data_dict["label"]],
+        explanation=data_dict["explanation_1"],
+        index=index,
+    )

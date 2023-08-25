@@ -128,16 +128,6 @@ Hypothesis: ```{data_dict["hypothesis"]}```
     return message_list
 
 
-def process_esnli(data_dict, index):
-    # process data loading from huggingface repo
-    return dict(
-        premise=data_dict["premise"],
-        hypothesis=data_dict["hypothesis"],
-        label=utils.esnli_label_map[data_dict["label"]],
-        explanation=data_dict["explanation_1"],
-        index=index,
-    )
-
 if __name__ == "__main__":
     args = parse_args()
     esnli = load_dataset("esnli")["train"]
@@ -148,7 +138,7 @@ if __name__ == "__main__":
     
     for i in tqdm(range(args.num_samples)):
         index = select_list[i]
-        data_dict = process_esnli(esnli[index], index)
+        data_dict = utils.process_esnli(esnli[index], index)
         messages = msg_esnli(None, data_dict, mid=args.mid)
         response = get_gpt_response(args, messages=messages)
         save_list.append(dict(
