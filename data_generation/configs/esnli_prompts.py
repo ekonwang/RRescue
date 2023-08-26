@@ -37,3 +37,15 @@ Provide a brief explanation up to 30 words to justify your decision, then add a 
 Premise: ```{premise}```
 Hypothesis: ```{hypothesis}```
 Response: """
+
+
+if __name__ == "__main__":
+    import json
+    import os
+    prompt_list = [prompt_with_examples] 
+    with open(os.path.dirname(os.path.abspath(__file__)) + "/esnli_prompt_with_examples.json", "w") as f:
+        json.dump(prompt_list, f)
+    prompt_list.clear()
+    prompt_list.append(prompt_without_examples)
+    with open(os.path.dirname(os.path.abspath(__file__)) + "/esnli_prompt.json", "w") as f:
+        json.dump(prompt_list, f)

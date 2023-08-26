@@ -53,7 +53,14 @@ def parse_response(response, first="explanation"):
     except IndexError:
         print(f"Invalid response: {response}")
         return None
-    
+
+
+def safe_parse_response(response, first="explanation"):
+    result = parse_response(response, first)
+    if result["label"].lower() not in esnli_label_map.values():
+        result["label"] = unk_label
+    return result
+
 
 def extract_first_response(resp):
     # valid format is:

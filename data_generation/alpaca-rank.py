@@ -31,25 +31,11 @@ def partial_rank(responses, esnli_data_dict):
 
 
 # --- extract the valid responses --- #
-def __extract(resp):
-    # valid format is:
-    # `<a sentence> #### <a word>`
-    # find the first match within the response
-    # if not found, return None
-
-    pattern = re.compile(r"`([^`]*####[^`]*)`")
-    match = pattern.search(resp)
-    if match:
-        return match.group(1)
-    else:
-        return None
-
-
 def fetch_valid_response(data_dict):
     human_response = utils.make_response(data_dict["data_dict"], captalize=True)
     resp_list = [human_response]
     for lm_resp in data_dict["responses"]:
-        extracted = __extract(lm_resp)
+        extracted = utils.extract_first_response(lm_resp)
         if extracted:
             resp_list.append(extracted)
     return resp_list
