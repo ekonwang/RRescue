@@ -106,7 +106,8 @@ class SupervisedDataset(Dataset):
         def add_prompt(prompt, i):
             self.dataset_for_eval.append(dict(prompt=prompt, index=i))
 
-        idxs = list(range(10))
+        with open(args.sample_path, "r") as f:
+            idxs = json.load(f)
         if args.truncate is not None:
             idxs = idxs[: args.truncate]
 
@@ -339,7 +340,7 @@ def main(rank, args):
             gathered_inputs = sequence_gather(
                 input_ids, world_size, tokenizer.pad_token_id
             )
-            gathered_ids = sequence_gather(ids, world_size, tokenizer.pad_token_id)
+            gathered_ids = sequence_gather(ids, world_size, -1)
             gather_outputs = torch.stack(gather_outputs).reshape(
                 world_size, batch_size, args.diverse_beam, -1
             )
@@ -362,9 +363,10 @@ def main(rank, args):
         inputs_string = tokenizer.batch_decode(
             gathered_inputs, skip_special_tokens=True
         )
+        num = (gathered_ids != -1).sum()
         id_list = gathered_ids.tolist()
 
-        for it in range(len(inputs_string)):
+        for it in range(num):
             idx = id_list[it]
             if args.data_path == "esnli":
                 data_dict = utils.process_esnli(dataset_original[idx], idx)
@@ -393,18 +395,19 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", default="esnli", type=str, choices=["esnli"], help="config path")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
-    parser.add_argument("--diverse_beam", type=int, default=4, help="batch size")
+    parser.add_argument("--diverse_beam", type=int, default=6, help="batch size")
     parser.add_argument("--out_path", default="./output", type=str, help="config path")
     parser.add_argument(
         "--model_max_length", default=512, type=int, help="token length"
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--truncate", type=int, default=None, help="truncate")
+    parser.add_argument("--sample_path", type=str, default=None, help="sample list")
     args = parser.parse_args()
 
     if torch.cuda.device_count() > 1:
         local_rank = int(os.environ["LOCAL_RANK"])
     else:
         local_rank = 0
-    # CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port 7881 gen-alpaca.py --truncate 4
+    # CUDA_VISIBLE_DEVICES=1,2,3,4,5 torchrun --nproc_per_node=5 --master_port 7881 gen-alpaca.py --truncate 10 --sample_path ./output/index/esnli_seed40.json
     main(local_rank, args)
