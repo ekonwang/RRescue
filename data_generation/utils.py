@@ -23,21 +23,27 @@ def strip_response(response):
         return [strip_response(res) for res in response]
     else:
         raise ValueError(f"Invalid response type {type(response)}")
+    
+
+def wrap_response(response):
+    clean_resp = strip_response(response)
+    return f"```{clean_resp}```"
 
 
-def make_response(input_dict, first="explanation"):
+def make_response(input_dict, first="explanation", captalize=True):
     assert first in ["explanation", "label"]
+    label = input_dict["label"].capitalize() if captalize else input_dict["label"]
     if first == "explanation":
-        return input_dict["explanation"] + " #### " + input_dict["label"]
+        return input_dict["explanation"] + " #### " + label
     elif first == "label":
-        return input_dict["label"] + " #### " + input_dict["explanation"]
+        return label + " #### " + input_dict["explanation"]
     else:
         raise ValueError(f"Invalid order {first}")
 
 
 def parse_response(response, first="explanation"):
     assert first in ["explanation", "label"]
-    splits = response.strip(' `').split("####")
+    splits = strip_response(response).split("####")
     splits = [s.strip() for s in splits]
     try:
         if first == "explanation":
