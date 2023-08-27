@@ -352,8 +352,7 @@ def train():
     trainer.train()
     trainer.save_state()
     local_rank = int(os.environ["LOCAL_RANK"])
-    if local_rank == 0:
-        safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
+    safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
 
 
 if __name__ == "__main__":
