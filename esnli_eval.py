@@ -1,11 +1,14 @@
 import argparse
 import copy
 import json
+import sys
+import os
 from typing import Dict
 
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation"))
 import utils
 
 UNK = "<unk>"

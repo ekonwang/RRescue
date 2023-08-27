@@ -2,6 +2,7 @@ import argparse
 from dataclasses import dataclass, field
 import json
 import os
+import sys
 from typing import Dict, Optional, Sequence
 
 from datasets import load_dataset
@@ -14,8 +15,11 @@ from tqdm import tqdm
 import transformers
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           GenerationConfig, HfArgumentParser)
+
 from train_utils import (sequence_gather, smart_tokenizer_and_embedding_resize,
                    tokenize_fn)
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation"))
 import utils
 
 DEFAULT_PAD_TOKEN = "[PAD]"
