@@ -1,21 +1,34 @@
 import json
-import random
-from datasets import load_dataset
-import re
 import os
-from tqdm import tqdm
-
-import utils
+import random
+import re
 import sys
+
+from datasets import load_dataset
+from tqdm import tqdm
+import utils
 
 # --------------------------------------- #
 # 08-26 filter and rank the responses
 # --------------------------------------- #
 
 # --- rank the responses --- #
-def simple_rank(responses, esnli_data_dict):
+
+
+def rank(responses, esnli_data_dict):
     scores = [1.0] * len(responses)
     scores[0] = 2.0
+    return scores
+
+
+def simple_rank(responses, esnli_data_dict):
+    scores = [2.0] + [1.0] * (len(responses) - 1)
+    gt = esnli_data_dict['label'].lower()
+    for index in range(1, len(responses)):
+        resp = responses[index]
+        label = utils.parse_response(resp)["label"].lower()
+        if gt == label:
+            scores[index] = 2.0
     return scores
 
 
@@ -47,7 +60,7 @@ def filter_and_rank(file, func, resp_num_thres=None):
 
     with open(file, "r") as f:
         data_list = json.load(f)
-    
+
     new_data_list = list()
     for step, data_dict in enumerate(tqdm(data_list)):
         new_data_dict = dict()
@@ -64,7 +77,7 @@ def filter_and_rank(file, func, resp_num_thres=None):
 
         log_dict[len(responses)] += 1
         new_data_list.append(new_data_dict)
-    
+
     sample_list = [1000, 2000, 5000, 10000, 20000]
     for sample_num in sample_list:
         dir = os.path.join(os.path.dirname(file), func.__name__)
@@ -72,7 +85,7 @@ def filter_and_rank(file, func, resp_num_thres=None):
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         with open(output_file, "w") as f:
             json.dump(new_data_list[:sample_num], f, indent=4)
-    
+
     with open(os.path.join(dir, "log"), "w") as f:
         # redirect stdout to f
         sys.stdout = f
@@ -82,8 +95,7 @@ def filter_and_rank(file, func, resp_num_thres=None):
             if v and isinstance(k, int):
                 print(f"==== responses {k} === {v} / {sum(list(log_dict.values()))}")
 
+
 if __name__ == "__main__":
     file = "/workspace/RRescue/data_generation/output/alpaca/alpaca-lora-7b_esnli.json"
-    filter_and_rank(file, partial_rank, 6)
-
-
+    filter_and_rank(file, simple_rank, 6)
