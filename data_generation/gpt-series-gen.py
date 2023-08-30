@@ -17,17 +17,14 @@ def parse_args():
         parser.add_argument(*args, **kwargs)
 
     # --- misc --- #
-    aa(
-        "--examples_path",
-        type=str,
-        default="/home/yw637/workspace/RankRL/data/configs/esnli_examples.json",
-    )
     aa("--output_root", type=str, default="./output")
+    aa("--head_truncate", type=int, default=0)
     aa("--num_samples", type=int, default=10000)
     aa("--dataset", type=str, default="esnli")
     aa("--mid", type=int, default=2)
+    aa("--sample_list", type=str, default=None, required=True)
     # --- model params --- #
-    aa("--model_name", type=str, default="gpt-3.5-turbo-0301")  # gpt-4-0314
+    aa("--model_name", type=str, default="gpt-3.5-turbo-0613", choices=["gpt-3.5-turbo-0613", "gpt-4-0314"])
     aa("--temperature", type=float, default=0)
     aa("--max_tokens", type=int, default=512)
     aa("--top_p", type=float, default=0.9)
@@ -133,11 +130,23 @@ if __name__ == "__main__":
     esnli = load_dataset("esnli")["train"]
     save_list = list()
     # ---  --- #
-    select_list = list(range(len(esnli)))
-    random.shuffle(select_list)
+    with open(args.sample_list, "r") as f:
+        select_list = json.load(f)
+        select_list = select_list[args.head_truncate: args.num_samples]
+
+    # --- prepare for save --- #
+    raw_path = os.path.join(args.output_root, args.dataset, f"{args.model_name}.json")
+    if args.num_samples >= 1000:
+        output_path = raw_path.replace(".json", f"-samples-{args.num_samples//1000}k.json")
+    else:
+        output_path = raw_path
+
+    def save(save_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w") as f:
+            json.dump(save_list, f, indent=4)
     
-    for i in tqdm(range(args.num_samples)):
-        index = select_list[i]
+    for i, index in enumerate(tqdm(select_list)):
         data_dict = utils.process_esnli(esnli[index], index)
         messages = msg_esnli(None, data_dict, mid=args.mid)
         response = get_gpt_response(args, messages=messages)
@@ -147,20 +156,16 @@ if __name__ == "__main__":
             messages=messages,
         ))
         print(response)
+        if i % 1000 == 0:
+            save(output_path)
+            print(f"saved {i + 1} samples to {output_path}")
 
-    # --- save --- #
-    raw_path = os.path.join(args.output_root, args.dataset, f"{args.model_name}.json")
-    if args.num_samples >= 1000:
-        output_path = raw_path.replace(".json", f"-samples-{args.num_samples//1000}k.json")
-    else:
-        output_path = raw_path
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(save_list, f, indent=4)
-
-    for samples in [1000, 2000, 5000, 10000]:
+    for samples in [1000, 2000, 5000, 10000, 20000, 50000]:
         if samples < args.num_samples:
             output_path = raw_path.replace(".json", f"-samples-{samples//1000}k.json")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, "w") as f:
                 json.dump(save_list[:samples], f, indent=4)
+    
+    # script to generate samples
+    # python -u gpt-series-gen.py --model_name gpt-3.5-turbo-0613 --num_samples 100000 --sample_list ./output/index/esnli_seed40.json

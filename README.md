@@ -30,7 +30,7 @@ pre-commit run --all-files
 ```bash
 # --- gpt-3.5-turbo-0613 --- #
 cd data_generation
-python gpt-series-gen.py --model_name gpt-3.5-turbo-0613 --num_samples 20000
+python gpt-series-gen.py --model_name gpt-3.5-turbo-0613 --num_samples 20000 --sample_list ./output/index/esnli_seed40.json
 python gpt-series-flip.py --input <file>
 
 # --- llama model --- #
