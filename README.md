@@ -1,6 +1,6 @@
 # RRescue: Ranking LLM Responses to Enhance Contextual Understanding
 
-![](https://img.shields.io/static/v1?label=&message=MIPS&color=orange&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=LLM&color=red&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=For-ICLR-2024&color=black&style=for-the-badge)
+![](https://img.shields.io/static/v1?label=&message=Dev&color=orange&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=LLM&color=red&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=For-ICLR-2024&color=black&style=for-the-badge)
 
 [overleaf link](https://www.overleaf.com/project/64ca9b8ac33902595d5adc01) [google doc link](https://docs.google.com/document/d/1eanF7cs4QSEUCIwU1uDmrvI2nGzhdCUzq1EmDR19oWM/edit)
 
