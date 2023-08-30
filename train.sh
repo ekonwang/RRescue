@@ -19,9 +19,13 @@ prompt_file=./data_generation/configs/$prompt_template
 wandb offline
 mkdir -p ./logs
 
+# if environmental variable GLOBAL_BATCH_SIZE is not set, set it to 8
+if [ -z ${GLOBAL_BATCH_SIZE+x} ]; then
+    export GLOBAL_BATCH_SIZE=8
+fi
 IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 NPROC=${#DEVICES[@]}
-gradient_accumulation_steps=$((8/$NPROC))
+gradient_accumulation_steps=$(( (GLOBAL_BATCH_SIZE + NPROC - 1) / NPROC ))
 
 python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port ${MASTER_PORT} --nproc_per_node=$NPROC --use_env train.py \
     --model_name_or_path $MODEL_PATH \
