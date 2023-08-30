@@ -1,8 +1,8 @@
 import argparse
 import copy
 import json
-import sys
 import os
+import sys
 from typing import Dict
 
 from sklearn.metrics import confusion_matrix
@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument("--input_file", type=str, default=None)
     parser.add_argument("--data_path", type=str, default="esnli", choices=["esnli"], help="dataset")
     parser.add_argument("--e_first", type=int, default=1)
+    parser.add_argument("--truncate", type=int, default=None)
     return parser.parse_args()
 
 
@@ -29,7 +30,7 @@ def esnli(output_dict: Dict, opt):
     str_label = output_dict["label"]
     answer = answer.replace(query, "")
     extracted_resp = utils.extract_first_response(answer)
-    if extracted_resp == None:
+    if extracted_resp is None:
         return str_label, UNK
     str_pred = utils.safe_parse_response(extracted_resp)["label"]
     return str_label, str_pred
@@ -50,6 +51,8 @@ def main(opt):
             label, pred = esnli(item, opt)
             label_list.append(label.lower())
             pred_list.append(pred.lower())
+        if opt.truncate is not None and idx + 1 >= opt.truncate:
+            break
 
     if opt.data_path == "esnli":
         # 1. overall calculate accuracy with confusion matrix
