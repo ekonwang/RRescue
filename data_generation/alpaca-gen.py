@@ -385,16 +385,17 @@ def main(rank, args):
                 )
             )
 
-    if rank == 0:
-        dataset_name = data_path.split("/")[-1]
-        model_name = base_model.split("/")[-1]
-        output_path = (
-            args.out_path
-            + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
-        )
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, "w") as f:
-            json.dump(all_outputs, f, indent=4)
+        if rank == 0 and (step + 1 == len(dataloader) or (step + 1) % 10000 == 0):
+            dataset_name = data_path.split("/")[-1]
+            model_name = base_model.split("/")[-1]
+            output_path = (
+                args.out_path
+                + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
+            )
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, "w") as f:
+                json.dump(all_outputs, f, indent=4)
+            print(f"save {output_path} {len(all_outputs)} examples!!")
 
 
 if __name__ == "__main__":
