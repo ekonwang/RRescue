@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import sys
 from typing import Dict, Optional, Sequence
 
 import torch
@@ -11,8 +12,14 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import transformers
 from transformers import Trainer
+
 from train_utils import (safe_save_model_for_hf_trainer,
-                   smart_tokenizer_and_embedding_resize, tokenize_fn)
+                         smart_tokenizer_and_embedding_resize, tokenize_fn)
+
+sys.path.append(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation")
+)
+import utils
 
 # ---------------------------------------------------------------------- #
 # train LM with ranking guidance
@@ -26,6 +33,7 @@ DEFAULT_EOS_TOKEN = "</s>"
 DEFAULT_BOS_TOKEN = "</s>"
 DEFAULT_UNK_TOKEN = "</s>"
 LOGFILE = None
+
 
 @dataclass
 class ModelArguments:
@@ -57,6 +65,7 @@ class TrainingArguments(transformers.TrainingArguments):
     train_strategy: str = field(default="sft")
     length_penalty: float = field(default=1.0)
     logging_file: str = field(default=None)
+    seed: int = field(default=42)
 
 
 # ---------- dataset -------------- #
@@ -111,7 +120,8 @@ class DataCollatorForRankDataset(object):
             sel_resps = [responses[0]]
             all_scores.append([scores[0]])
             sample_idxs = random.sample(
-                list(range(1, len(responses))), min(self.data_args.num_resp, len(responses)) - 1
+                list(range(1, len(responses))),
+                min(self.data_args.num_resp, len(responses)) - 1,
             )
             sel_resps += [responses[i] for i in sample_idxs]
             all_scores[-1] += [scores[i] for i in sample_idxs]
@@ -296,8 +306,11 @@ def train():
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainingArguments)
     )
+    world_size = int(os.environ["WORLD_SIZE"])
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     os.makedirs(training_args.output_dir, exist_ok=True)
+    utils.set_all_seed(training_args.seed)
+
     logging_file = os.path.join(training_args.output_dir, "training.log")
     with open(logging_file, "w") as f:
         f.write("")

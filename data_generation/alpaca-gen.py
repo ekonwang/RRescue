@@ -4,8 +4,8 @@ import copy
 from dataclasses import dataclass
 import json
 import os
-from typing import Dict, Sequence
 import random
+from typing import Dict, Sequence
 
 from datasets import load_dataset
 import torch
@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import transformers
 from transformers import GenerationConfig, LlamaForCausalLM, LlamaTokenizer
-
 import utils
 
 IGNORE_INDEX = -100
@@ -144,7 +143,6 @@ Response: """
                 prompt = template.format_map(data)
                 add_prompt(prompt, idx)
 
-
     def __len__(self):
         return len(self.dataset_for_eval)
 
@@ -226,15 +224,8 @@ def make_supervised_data_module(
     return eval_dataset, data_collator
 
 
-def set_all_seed(seed):
-    """Set all seeds."""
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    random.seed(seed)
-
-
 def main(rank, args):
-    set_all_seed(args.seed)
+    utils.set_all_seed(args.seed)
     os.makedirs(args.out_path, exist_ok=True)
 
     torch.cuda.set_device(rank)
@@ -380,22 +371,27 @@ def main(rank, args):
             idx = id_list[it]
             if args.data_path == "esnli":
                 data_dict = utils.process_esnli(dataset_original[idx], idx)
-            
+
             responses = []
             for div_idx in range(args.diverse_beam):
                 response = outputs_string[it * args.diverse_beam + div_idx]
                 response = response.replace(inputs_string[it], "")
                 responses.append(response)
-            
-            all_outputs.append(dict(
-                data_dict=data_dict,
-                responses=responses,
-            ))
+
+            all_outputs.append(
+                dict(
+                    data_dict=data_dict,
+                    responses=responses,
+                )
+            )
 
     if rank == 0:
         dataset_name = data_path.split("/")[-1]
         model_name = base_model.split("/")[-1]
-        output_path = args.out_path + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
+        output_path = (
+            args.out_path
+            + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
+        )
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w") as f:
             json.dump(all_outputs, f, indent=4)
@@ -403,8 +399,16 @@ def main(rank, args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parameters")
-    parser.add_argument("--base_model", default="chainyo/alpaca-lora-7b", type=str, choices=["chainyo/alpaca-lora-7b", "NousResearch/Llama-2-7b-hf"], help="model path")
-    parser.add_argument("--data_path", default="esnli", type=str, choices=["esnli"], help="config path")
+    parser.add_argument(
+        "--base_model",
+        default="chainyo/alpaca-lora-7b",
+        type=str,
+        choices=["chainyo/alpaca-lora-7b", "NousResearch/Llama-2-7b-hf"],
+        help="model path",
+    )
+    parser.add_argument(
+        "--data_path", default="esnli", type=str, choices=["esnli"], help="config path"
+    )
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
     parser.add_argument("--diverse_beam", type=int, default=6, help="batch size")

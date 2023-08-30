@@ -21,6 +21,9 @@ mkdir -p ./logs
 IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 NPROC=${#DEVICES[@]}
 
+# calulate gradient_accumulation_steps = 8/$NPROC
+export gradient_accumulation_steps=$((8/$NPROC))
+
 python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port ${MASTER_PORT} --nproc_per_node=$NPROC --use_env train.py \
     --model_name_or_path $MODEL_PATH \
     --data_path $DATA_PATH \
@@ -32,7 +35,7 @@ python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port $
     --num_train_epochs 1 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
-    --gradient_accumulation_steps 1 \
+    --gradient_accumulation_steps ${gradient_accumulation_steps} \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
     --save_steps 8000 \
@@ -46,4 +49,3 @@ python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port $
     --fsdp_transformer_layer_cls_to_wrap 'LlamaDecoderLayer' \
     --model_max_length 512 \
     --rrhf_weight ${weight} --train_strategy $strategy | tee ./logs/test.log
-

@@ -1,8 +1,13 @@
+import random
 import re
 
+import torch
+
+# ----- data process ----- #
 esnli_label_map = {0: "entailment", 1: "neutral", 2: "contradiction"}
 unk_label = "<unk>"
 # TODO: strip out useless functions
+
 
 def stop_response(res):
     stops = ["\n\nHuman:", "\n\nAssistant:", "\n\nhuman:", "\n\nassistant:"]
@@ -17,13 +22,13 @@ def strip_response(response):
     # ```{sentence} ### {one-word-label}```
 
     if isinstance(response, str):
-        response = response.strip(' `\n')
+        response = response.strip(" `\n")
         return response
     elif isinstance(response, list):
         return [strip_response(res) for res in response]
     else:
         raise ValueError(f"Invalid response type {type(response)}")
-    
+
 
 def wrap_response(response):
     clean_resp = strip_response(response)
@@ -53,7 +58,7 @@ def parse_response(response, first="explanation"):
     except IndexError:
         print(f"Invalid response: {response}")
         return None
-    
+
 
 def safe_parse_response(response, first="explanation"):
     result = parse_response(response, first)
@@ -74,7 +79,7 @@ def extract_first_response(resp):
         return match.group(1)
     else:
         return None
-    
+
 
 def process_esnli(data_dict, index):
     # process data loading from huggingface repo
@@ -85,3 +90,11 @@ def process_esnli(data_dict, index):
         explanation=data_dict["explanation_1"],
         index=index,
     )
+
+
+# ----- misc ----- #
+def set_all_seed(seed):
+    """Set all seeds."""
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    random.seed(seed)
