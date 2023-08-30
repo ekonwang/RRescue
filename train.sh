@@ -20,8 +20,6 @@ mkdir -p ./logs
 
 IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 NPROC=${#DEVICES[@]}
-
-# calulate gradient_accumulation_steps = 8/$NPROC
 export gradient_accumulation_steps=$((8/$NPROC))
 
 python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port ${MASTER_PORT} --nproc_per_node=$NPROC --use_env train.py \
