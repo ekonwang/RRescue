@@ -109,7 +109,7 @@ class SupervisedDataset(Dataset):
         with open(args.sample_path, "r") as f:
             idxs = json.load(f)
         if args.truncate is not None:
-            idxs = idxs[: args.truncate]
+            idxs = idxs[args.head_truncate: args.truncate]
 
         if self.data_path == "esnli":
             template = """\
@@ -418,6 +418,7 @@ if __name__ == "__main__":
         "--model_max_length", default=512, type=int, help="token length"
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--head_truncate", type=int, default=0, help="truncate")
     parser.add_argument("--truncate", type=int, default=None, help="truncate")
     parser.add_argument("--sample_path", type=str, default=None, help="sample list")
     parser.add_argument("--seed", type=int, default=40)
