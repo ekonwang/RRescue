@@ -13,6 +13,9 @@ python -m pip install xformers
 python -m pip install pre-commit
 
 pre-commit install --install-hooks --all
+
+# --- for pre-commit all files --- #
+pre-commit run --all-files
 ```
 ## data generation
 
