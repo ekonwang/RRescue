@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 import os
 from typing import Dict, Sequence
+import random
 
 from datasets import load_dataset
 import torch
@@ -225,9 +226,18 @@ def make_supervised_data_module(
     return eval_dataset, data_collator
 
 
+def set_all_seed(seed):
+    """Set all seeds."""
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    random.seed(seed)
+
+
 def main(rank, args):
+    set_all_seed(args.seed)
     os.makedirs(args.out_path, exist_ok=True)
 
+    torch.cuda.set_device(rank)
     world_size = torch.cuda.device_count()
     if world_size > 1:
         dist.init_process_group("nccl")
@@ -305,7 +315,7 @@ def main(rank, args):
         sampler=sampler,
     )
     generation_config = GenerationConfig(
-        temperature=0.8,
+        temperature=args.temperature,
         num_beam_groups=args.diverse_beam,
         diversity_penalty=1.0,
         num_beams=args.diverse_beam,
@@ -385,13 +395,15 @@ def main(rank, args):
     if rank == 0:
         dataset_name = data_path.split("/")[-1]
         model_name = base_model.split("/")[-1]
-        with open(args.out_path + f"/{model_name}_{dataset_name}.json", "w") as f:
+        output_path = args.out_path + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w") as f:
             json.dump(all_outputs, f, indent=4)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parameters")
-    parser.add_argument("--base_model", default="chainyo/alpaca-lora-7b", type=str, choices=["chainyo/alpaca-lora-7b"], help="model path")
+    parser.add_argument("--base_model", default="chainyo/alpaca-lora-7b", type=str, choices=["chainyo/alpaca-lora-7b", "NousResearch/Llama-2-7b-hf"], help="model path")
     parser.add_argument("--data_path", default="esnli", type=str, choices=["esnli"], help="config path")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
@@ -403,11 +415,13 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--truncate", type=int, default=None, help="truncate")
     parser.add_argument("--sample_path", type=str, default=None, help="sample list")
+    parser.add_argument("--seed", type=int, default=40)
+    parser.add_argument("--temperature", type=float, default=0.8)
     args = parser.parse_args()
 
     if torch.cuda.device_count() > 1:
         local_rank = int(os.environ["LOCAL_RANK"])
     else:
         local_rank = 0
-    # CUDA_VISIBLE_DEVICES=1,2,3,4,5 torchrun --nproc_per_node=5 --master_port 7881 gen-alpaca.py --truncate 10 --sample_path ./output/index/esnli_seed40.json
+    # CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 7881 alpaca-gen.py --truncate 20000 --sample_path ./output/index/esnli_seed40.json --base_model NousResearch/Llama-2-7b-hf --diverse_beam 3
     main(local_rank, args)
