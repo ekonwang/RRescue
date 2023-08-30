@@ -1,8 +1,10 @@
 # ------------------------------------------------------------------------------- #
 # RRHF: Rank Responses to Align Language Models with Human Feedback without tears
 # ------------------------------------------------------------------------------- #
-export SAVE_PATH=$1 #  /mnt/data/user/wang_yikun/instr/alpaca-7b/eos/esnli/$tag
-export DATA_PATH=$2 #  /workspace/Rank/outputs/data/esnli/data_10k/train_partial.json
+export WANDB_DISABLED=true
+
+SAVE_PATH=$1
+DATA_PATH=$2
 num_resp=$3 # 2-6
 strategy=rank # rank / sft
 use_eos_token=0 # 1 / 0
@@ -10,17 +12,16 @@ use_eos_token=0 # 1 / 0
 prompt_template=esnli_prompt.json
 dataset=esnli
 weight=0.1
-export MODEL_PATH=chainyo/alpaca-lora-7b
-export MASTER_ADDR="localhost"
-export MASTER_PORT=$((RANDOM % 1000 + 10000))
-export WANDB_DISABLED=true
+MODEL_PATH=$MODEL_FOR_TRAIN # chainyo/alpaca-lora-7b / NousResearch/Llama-2-7b-hf
+MASTER_ADDR="localhost"
+MASTER_PORT=$((RANDOM % 1000 + 10000))
 prompt_file=./data_generation/configs/$prompt_template
 wandb offline
 mkdir -p ./logs
 
 IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 NPROC=${#DEVICES[@]}
-export gradient_accumulation_steps=$((8/$NPROC))
+gradient_accumulation_steps=$((8/$NPROC))
 
 python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port ${MASTER_PORT} --nproc_per_node=$NPROC --use_env train.py \
     --model_name_or_path $MODEL_PATH \
