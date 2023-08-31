@@ -149,13 +149,24 @@ if __name__ == "__main__":
     for i, index in enumerate(tqdm(select_list)):
         data_dict = utils.process_esnli(esnli[index], index)
         messages = msg_esnli(None, data_dict, mid=args.mid)
-        response = get_gpt_response(args, messages=messages)
+        
+        cnt = 0
+        while cnt < 3:
+            try:
+                response = get_gpt_response(args, messages=messages)
+                break
+            except Exception as e:
+                print(e)
+                response = None 
+        if response is None:
+            print(f"failed to generate sample {i + 1} with index {index}")
+            continue
+
         save_list.append(dict(
             data_dict=data_dict,
             response=response,
             messages=messages,
         ))
-        print(response)
         if i % 1000 == 0:
             save(output_path)
             print(f"saved {i + 1} samples to {output_path}")
