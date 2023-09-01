@@ -15,15 +15,15 @@ import utils
 # --- rank the responses --- #
 
 
-def rank(responses, esnli_data_dict):
+def human_rank(responses, esnli_data_dict):
     scores = [1.0] * len(responses)
     scores[0] = 2.0
     return scores
 
 
-def simple_rank(responses, esnli_data_dict):
+def label_rank(responses, esnli_data_dict):
     scores = [2.0] + [1.0] * (len(responses) - 1)
-    gt = esnli_data_dict['label'].lower()
+    gt = esnli_data_dict["label"].lower()
     for index in range(1, len(responses)):
         resp = responses[index]
         label = utils.parse_response(resp)["label"].lower()
@@ -32,9 +32,9 @@ def simple_rank(responses, esnli_data_dict):
     return scores
 
 
-def partial_rank(responses, esnli_data_dict):
+def Fei_rank(responses, esnli_data_dict):
     scores = [3.0] + [1.0] * (len(responses) - 1)
-    gt = esnli_data_dict['label'].lower()
+    gt = esnli_data_dict["label"].lower()
     for index in range(1, len(responses)):
         resp = responses[index]
         label = utils.parse_response(resp)["label"].lower()
@@ -88,14 +88,18 @@ def filter_and_rank(file, func, resp_num_thres=None):
 
     with open(os.path.join(dir, "log"), "w") as f:
         # redirect stdout to f
+        origin = sys.stdout
         sys.stdout = f
         print(f"stripped out {len(log_dict['strip'])} responses: {log_dict['strip']}")
         del log_dict["strip"]
         for k, v in log_dict.items():
             if v and isinstance(k, int):
                 print(f"==== responses {k} === {v} / {sum(list(log_dict.values()))}")
+        # restore stdout
+        sys.stdout = origin
 
 
 if __name__ == "__main__":
-    file = "/workspace/RRescue/data_generation/output/alpaca/alpaca-lora-7b_esnli.json"
-    filter_and_rank(file, simple_rank, 6)
+    file = "/workspace/RRescue/data_generation/output/mix/raw-mixed-19k.json"
+    for func in [human_rank, label_rank, Fei_rank]:
+        filter_and_rank(file, func, 5)
