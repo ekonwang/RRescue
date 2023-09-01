@@ -305,15 +305,27 @@ def main(rank, args):
         batch_size=batch_size,
         sampler=sampler,
     )
-    generation_config = GenerationConfig(
-        temperature=args.temperature,
-        num_beam_groups=args.diverse_beam,
-        diversity_penalty=1.0,
-        num_beams=args.diverse_beam,
-        min_length=1,
-        max_new_tokens=128,
-        num_return_sequences=args.diverse_beam,
-    )
+
+    if args.diverse_beam > 1:
+        # --- diverse beam search with temperature --- #
+        generation_config = GenerationConfig(
+            temperature=args.temperature,
+            num_beam_groups=args.diverse_beam,
+            diversity_penalty=1.0,
+            num_beams=args.diverse_beam,
+            min_length=1,
+            max_new_tokens=128,
+            num_return_sequences=args.diverse_beam,
+        )
+    else:
+        # --- greedy decoding --- #
+        generation_config = GenerationConfig(
+            temperature=0,
+            min_length=1,
+            max_new_tokens=128,
+            num_return_sequences=1,
+        )
+
     all_outputs = []
     for step, batch in enumerate(tqdm(dataloader)):
         input_ids = batch["input_ids"].to(model.device)
@@ -323,18 +335,25 @@ def main(rank, args):
             print(input_ids.size(0))
             print(input_ids[0])
             print(attention_mask[0])
-        with torch.no_grad():
-            if world_size > 1:
-                generation_model = model.module
-            else:
-                generation_model = model
-            generation_output = generation_model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                generation_config=generation_config,
-                return_dict_in_generate=True,
-            )
-        s = generation_output.sequences
+
+        try:
+            with torch.no_grad():
+                if world_size > 1:
+                    generation_model = model.module
+                else:
+                    generation_model = model
+                # ---- model generating responses ---- #
+                generation_output = generation_model.generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    generation_config=generation_config,
+                    return_dict_in_generate=True,
+                )
+            s = generation_output.sequences
+        except RuntimeError as e:
+            print(e)
+            print(f"{model.device} skip batch {step}, ids {ids}")
+            continue
 
         if world_size > 1:
             gather_outputs = sequence_gather(s, world_size, tokenizer.pad_token_id)
@@ -392,6 +411,8 @@ def main(rank, args):
                 args.out_path
                 + f"/{model_name}/{model_name}_{dataset_name}_seed{args.seed}.json"
             )
+            if args.out_tag is not None:
+                output_path = output_path.replace(".json", f"_{args.out_tag}.json")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, "w") as f:
                 json.dump(all_outputs, f, indent=4)
@@ -423,11 +444,12 @@ if __name__ == "__main__":
     parser.add_argument("--sample_path", type=str, default=None, help="sample list")
     parser.add_argument("--seed", type=int, default=40)
     parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--out_tag", default=None, type=str, help="tag for special generations like greedy decoding")
     args = parser.parse_args()
 
     if torch.cuda.device_count() > 1:
         local_rank = int(os.environ["LOCAL_RANK"])
     else:
         local_rank = 0
-    # CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 7881 alpaca-gen.py --truncate 20000 --sample_path ./output/index/esnli_seed40.json --base_model NousResearch/Llama-2-7b-hf --diverse_beam 3
+    # CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 7881 alpaca-gen.py --truncate 100000 --sample_path ./output/index/esnli_seed40.json --base_model NousResearch/Llama-2-7b-hf --diverse_beam 1
     main(local_rank, args)
