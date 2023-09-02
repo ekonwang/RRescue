@@ -102,7 +102,9 @@ def main(args):
                 )
                 cnt += 1
         if (ii + 1) % 10000 == 0:
-            print(f"success {cnt}/({ii-9999}-{ii+1})")
+            print()
+            print(f"==== success {cnt}/({ii-9999}-{ii+1}) ====")
+            print()
             cnt = 0
 
     for input_name, data_list in data_list_dict.items():
