@@ -404,7 +404,7 @@ def main(rank, args):
                 )
             )
 
-        if rank == 0 and (step + 1 == len(dataloader) or (step + 1) % 10000 == 0):
+        if rank == 0 and (step + 1 == len(dataloader) or (step + 1) % 1000 == 0):
             dataset_name = data_path.split("/")[-1]
             model_name = base_model.split("/")[-1]
             output_path = (
