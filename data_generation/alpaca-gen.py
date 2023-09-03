@@ -165,6 +165,15 @@ def padding(inputs, padding_token, cutoff=None):
     return tokens
 
 
+def pad_sequence(input_list, padding_token):
+    max_len = max([item.size(1) for item in input_list])
+    tokens = torch.ones(len(input_list), max_len).long().to(input_list[0].device) * padding_token
+    for i, item in enumerate(input_list):
+        length = item.size(1)
+        tokens[i, -length:] = item.squeeze()[-length:]
+    return tokens
+
+
 def sequence_gather(s, world_size, pad_tok_id):
     local_size = torch.tensor(s.size(), device=s.device)
     all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
@@ -308,15 +317,24 @@ def main(rank, args):
 
     if args.diverse_beam > 1:
         # --- diverse beam search with temperature --- #
-        generation_config = GenerationConfig(
-            temperature=args.temperature,
-            num_beam_groups=args.diverse_beam,
-            diversity_penalty=1.0,
-            num_beams=args.diverse_beam,
-            min_length=1,
-            max_new_tokens=128,
-            num_return_sequences=args.diverse_beam,
-        )
+        if args.multi_forward:
+            generation_config = GenerationConfig(
+                temperature=args.temperature,
+                min_length=1,
+                max_new_tokens=128,
+                num_return_sequences=1,
+                do_sample=True
+            )
+        else:
+            generation_config = GenerationConfig(
+                temperature=args.temperature,
+                num_beam_groups=args.diverse_beam,
+                diversity_penalty=1.0,
+                num_beams=args.diverse_beam,
+                min_length=1,
+                max_new_tokens=128,
+                num_return_sequences=args.diverse_beam,
+            )
     else:
         # --- greedy decoding --- #
         generation_config = GenerationConfig(
@@ -343,13 +361,26 @@ def main(rank, args):
                 else:
                     generation_model = model
                 # ---- model generating responses ---- #
-                generation_output = generation_model.generate(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    generation_config=generation_config,
-                    return_dict_in_generate=True,
-                )
-            s = generation_output.sequences
+                if args.multi_forward:
+                    resps = list()
+                    for _ in range(args.diverse_beam):
+                        generation_output = generation_model.generate(
+                            input_ids=input_ids,
+                            attention_mask=attention_mask,
+                            generation_config=generation_config,
+                            return_dict_in_generate=True,
+                        )
+                        s = generation_output.sequences
+                        resps.append(s)
+                    s = pad_sequence(resps, tokenizer.pad_token_id)
+                else:
+                    generation_output = generation_model.generate(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        generation_config=generation_config,
+                        return_dict_in_generate=True,
+                    )
+                    s = generation_output.sequences
         except RuntimeError as e:
             print(e)
             print(f"{model.device} skip batch {step}, ids {ids}")
@@ -445,6 +476,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=40)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--out_tag", default=None, type=str, help="tag for special generations like greedy decoding")
+    parser.add_argument("--multi_forward", action="store_true", help="whether generate responses with multiple forward passes, to address CUDA error in Llama-2-7b-hf")
     args = parser.parse_args()
 
     if torch.cuda.device_count() > 1:
