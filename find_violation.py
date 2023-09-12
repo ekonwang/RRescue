@@ -13,8 +13,11 @@ from torch.utils.data import Dataset
 import transformers
 from transformers import Trainer
 
-from train_utils import (safe_save_model_for_hf_trainer,
-                         smart_tokenizer_and_embedding_resize, tokenize_fn)
+from train_utils import (
+    safe_save_model_for_hf_trainer,
+    smart_tokenizer_and_embedding_resize,
+    tokenize_fn,
+)
 
 sys.path.append(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation")
@@ -400,6 +403,13 @@ def train():
         print(e)
         local_rank = int(os.environ["LOCAL_RANK"])
         if local_rank == 0:
+            ratio_list = list()
+            for data_dict in VIOLATION_LIST:
+                ratio_list.append(data_dict["violation_ratio"])
+            avg_ratio = sum(ratio_list) / len(ratio_list)
+            VIOLATION_LIST = [dict(violation_ratio=avg_ratio)] + VIOLATION_LIST
+            print(f"Average violation ratio: {avg_ratio:.4f}")
+
             with open(training_args.violation_record_path, "w") as f:
                 json.dump(VIOLATION_LIST, f, indent=4)
         sys.exit(0)
