@@ -158,7 +158,12 @@ def main():
         tag = os.path.basename(args.input_data).rsplit(".", 1)[0]
     # plot frequency distribution of tokens length
     sns.histplot(value_list, bins=100, kde=True)
-    plt.title(f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f}")
+    if args.length_penalty != 1.0:
+        plt.title(
+            f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f} length_penalty = {args.length_penalty:.2f}"
+        )
+    else:
+        plt.title(f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f}")
     plt.savefig(os.path.join(args.output_dir, f"log_prob_scores_{tag}.png"), dpi=300)
 
 

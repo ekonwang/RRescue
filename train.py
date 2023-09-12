@@ -13,8 +13,11 @@ from torch.utils.data import Dataset
 import transformers
 from transformers import Trainer
 
-from train_utils import (safe_save_model_for_hf_trainer,
-                         smart_tokenizer_and_embedding_resize, tokenize_fn)
+from train_utils import (
+    safe_save_model_for_hf_trainer,
+    smart_tokenizer_and_embedding_resize,
+    tokenize_fn,
+)
 
 sys.path.append(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation")
@@ -107,6 +110,11 @@ class DataCollatorForRankDataset(object):
             query = prompt.format_map(ins["data_dict"])
             responses = ins["responses"]
             scores = ins["scores"]
+            try:
+                length_penalty = ins["length_penalty"]
+            except Exception as e:
+                # sep-12 updates: assign length penalty to 0.85 for model outputs
+                length_penalty = [1.0] + [0.85] * (len(responses) - 1)
 
             query_input_ids = tokenize_fn(query, self.tokenizer)
             query_target = torch.LongTensor(
@@ -117,6 +125,7 @@ class DataCollatorForRankDataset(object):
             else:
                 dummy_target = torch.LongTensor([IGNORE_INDEX])
 
+            sel_penalties = [length_penalty[0]]
             sel_resps = [responses[0]]
             all_scores.append([scores[0]])
             sample_idxs = random.sample(
@@ -124,6 +133,7 @@ class DataCollatorForRankDataset(object):
                 min(self.data_args.num_resp, len(responses)) - 1,
             )
             sel_resps += [responses[i] for i in sample_idxs]
+            sel_penalties += [length_penalty[i] for i in sample_idxs]
             all_scores[-1] += [scores[i] for i in sample_idxs]
 
             for r in sel_resps:
@@ -150,63 +160,7 @@ class DataCollatorForRankDataset(object):
             labels=labels,
             idxs=torch.LongTensor(idxs),
             scores=torch.FloatTensor(all_scores),
-        )
-
-
-@dataclass
-class DataCollatorForSupervisedDataset(object):
-    """Collate examples for supervised fine-tuning."""
-
-    tokenizer: transformers.PreTrainedTokenizer
-    stop_response: bool
-    data_args: DataArguments
-
-    def __call__(self, instances):
-        idxs = []
-        all_scores = []
-        input_ids = []
-        score_mask = []
-        labels = []
-        for idx, ins in enumerate(instances):
-            with open(self.data_args.prompt_file, "r") as f:
-                prompt = json.load(f)[0]
-            ins = ins["input_ids"]  # hack
-            query = prompt.format_map(ins["inputs"])
-            responses = ins["synthesized_responses"]
-            scores = ins["scores"]
-            idxs.append([idx] * len(scores))
-
-            query_input_ids = tokenize_fn(query, self.tokenizer)
-            query_target = torch.LongTensor(
-                [IGNORE_INDEX] * (query_input_ids.shape[0] - 1)
-            )
-            if self.data_args.use_eos_token:
-                dummy_target = torch.LongTensor([self.tokenizer.eos_token_id])
-            else:
-                dummy_target = torch.LongTensor([IGNORE_INDEX])
-
-            r = responses[0]  # only choose the dataset given one
-            all_scores.append([scores[0]])
-            res_input_ids = tokenize_fn(
-                r + self.tokenizer.eos_token,
-                self.tokenizer,
-                max_len=self.tokenizer.model_max_length - query_input_ids.shape[0],
-            )  # eos here
-            input_ids.append(torch.cat((query_input_ids, res_input_ids), dim=0))
-            labels.append(torch.cat((query_target, res_input_ids, dummy_target), dim=0))
-
-        input_ids = torch.nn.utils.rnn.pad_sequence(
-            input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
-        )
-        labels = torch.nn.utils.rnn.pad_sequence(
-            labels, batch_first=True, padding_value=IGNORE_INDEX
-        )
-        return dict(
-            input_ids=input_ids,
-            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
-            labels=labels,
-            idxs=torch.LongTensor(idxs),
-            scores=torch.FloatTensor(all_scores),
+            length_penalty=torch.FloatTensor(sel_penalties),
         )
 
 
@@ -221,10 +175,12 @@ class RankTrainer(Trainer):
         output = output * mask  # B * L
         return output
 
-    def get_score(self, logit_label, labels):
+    def get_score(self, logit_label, labels, length_penalty):
         mask = (labels != -100).float()
         length = mask.sum(-1)
-        scores = logit_label.sum(-1) / (length**self.args.length_penalty)
+
+        # scores = logit_label.sum(-1) / (length**self.args.length_penalty)
+        scores = logit_label.sum(-1) / torch.pow(length, length_penalty)
         return scores
 
     def rrhf_loss(self, scores, idxs, rw_scores):
@@ -252,7 +208,9 @@ class RankTrainer(Trainer):
         logit_label = self.gather_logits_labels(logits, inputs.get("labels").clone())
 
         if self.args.train_strategy == "rank":
-            scores = self.get_score(logit_label, inputs.get("labels"))
+            scores = self.get_score(
+                logit_label, inputs.get("labels"), inputs.get("length_penalty")
+            )
             rrhf_loss = self.rrhf_loss(scores, inputs.get("idxs"), inputs.get("scores"))
             sft_loss = self.sft_loss(
                 logit_label, inputs.get("labels"), inputs.get("scores")
@@ -284,13 +242,7 @@ def make_supervised_data_module(
 ) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
     train_dataset = ScoreDataset(tokenizer=tokenizer, data_path=data_args.data_path)
-    if train_strategy == "sft":
-        data_collator = DataCollatorForSupervisedDataset(
-            tokenizer=tokenizer,
-            stop_response=data_args.stop_response,
-            data_args=data_args,
-        )
-    elif train_strategy == "rank":
+    if train_strategy == "rank":
         data_collator = DataCollatorForRankDataset(
             tokenizer=tokenizer,
             stop_response=data_args.stop_response,
