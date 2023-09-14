@@ -81,7 +81,8 @@ def _tokenize_fn(strings, tokenizer: transformers.PreTrainedTokenizer):
 
 def load_multidoc_qa(data_path):
     with open(data_path, "r") as f:
-        pass
+        data_list = json.load(f)
+    return data_list
 
 
 class SupervisedDataset(Dataset):
@@ -99,7 +100,7 @@ class SupervisedDataset(Dataset):
         elif args.data_path == "esnli":
             self.dataset_original = load_dataset(args.data_path)["train"]
         elif args.data_path == "multidoc-qa":
-            self.dataset_original = load_multidoc_qa(args.data_path)
+            self.dataset_original = load_multidoc_qa(args.data_file_path)
         else:
             raise NotImplementedError()
         self.data_path = args.data_path
@@ -110,25 +111,26 @@ class SupervisedDataset(Dataset):
         def add_prompt(prompt, i):
             self.dataset_for_eval.append(dict(prompt=prompt, index=i))
 
-        with open(args.sample_path, "r") as f:
-            idxs = json.load(f)
+        idxs = range(len(self.dataset_original))
         if args.truncate is not None:
             idxs = idxs[args.head_truncate : args.truncate]
 
         if self.data_path == "multidoc-qa":
             template = """\
-Write a high-quality answer for the given question using only the provided search results (some of which might be irrelevant).
+Write a high-quality answer for the given question using only the provided search document results (some of which might be irrelevant).
 
 Document [1](Title: {the_title}) {the_content}
 
-Question: {the_question}
+Question: {question}
 
 Answer: """
 
+        # for idx, example in enumerate(self.dataset_original):
+        #     prompt = template.format_map(example)
+        #     add_prompt(prompt, idx)
         for idx in idxs:
             example = self.dataset_original[idx]
-            data = utils.process_esnli(example, idx)
-            prompt = template.format_map(data)
+            prompt = template.format_map(example)
             add_prompt(prompt, idx)
 
     def __len__(self):
@@ -289,7 +291,12 @@ def main(rank, args):
         dataset_original = load_dataset(args.data_path, "main")["train"]
     elif args.data_path == "esnli":
         dataset_original = load_dataset(args.data_path)["train"]
+    elif args.data_path == "multidoc-qa":
+        dataset_original = load_multidoc_qa(args.data_file_path)
     else:
+        import pdb
+
+        pdb.set_trace()
         raise NotImplementedError()
 
     if world_size > 1:
@@ -329,7 +336,7 @@ def main(rank, args):
     else:
         # --- greedy decoding --- #
         generation_config = GenerationConfig(
-            temperature=0,
+            temperature=args.temperature,
             min_length=1,
             max_new_tokens=128,
             num_return_sequences=1,
@@ -412,6 +419,8 @@ def main(rank, args):
             idx = id_list[it]
             if args.data_path == "esnli":
                 data_dict = utils.process_esnli(dataset_original[idx], idx)
+            elif args.data_path == "multidoc-qa":
+                data_dict = dataset_original[idx]
 
             responses = []
             for div_idx in range(args.diverse_beam):
@@ -460,16 +469,18 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument("--port", type=int, default=0, help="batch size")
     parser.add_argument("--diverse_beam", type=int, default=1, help="batch size")
-    parser.add_argument("--out_path", default="./output", type=str, help="config path")
     parser.add_argument(
-        "--model_max_length", default=4096, type=int, help="token length"
+        "--out_path", default="./output/multidoc-qa", type=str, help="config path"
+    )
+    parser.add_argument(
+        "--model_max_length", default=512, type=int, help="token length"
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--head_truncate", type=int, default=0, help="truncate")
     parser.add_argument("--truncate", type=int, default=None, help="truncate")
-    parser.add_argument("--sample_path", type=str, default=None, help="sample list")
     parser.add_argument("--seed", type=int, default=40)
     parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--data_file_path", type=str, default=None)
     parser.add_argument(
         "--out_tag",
         default=None,
@@ -487,5 +498,5 @@ if __name__ == "__main__":
         local_rank = int(os.environ["LOCAL_RANK"])
     else:
         local_rank = 0
-    # CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 7881 alpaca-gen.py --truncate 100000 --sample_path ./output/index/esnli_seed40.json --base_model NousResearch/Llama-2-7b-hf --diverse_beam 1
+    # CUDA_VISIBLE_DEVICES=7 torchrun --nproc_per_node=1 --master_port 7881 multidoc-qa-gen.py --base_model NousResearch/Llama-2-7b-hf --diverse_beam 1 --data_file_path ./output/multidoc-qa/one-doc-raw.json
     main(local_rank, args)
