@@ -120,3 +120,4 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     main(args)
+    # python mix-responses.py --input_files /workspace/RRescue/data_generation/output/Llama-2-7b-hf/Llama-2-7b-hf_esnli_seed40_multi_forward.json /workspace/RRescue/data_generation/output/gpt-3.5-turbo-6013/gpt-3.5-turbo-0613-samples-100k-simp.json --valid_responses 3 1 | tee output/mix/log
