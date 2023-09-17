@@ -13,13 +13,22 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 import transformers
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          GenerationConfig, HfArgumentParser)
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    GenerationConfig,
+    HfArgumentParser,
+)
 
-from train_utils import (sequence_gather, smart_tokenizer_and_embedding_resize,
-                   tokenize_fn)
+from train_utils import (
+    sequence_gather,
+    smart_tokenizer_and_embedding_resize,
+    tokenize_fn,
+)
 
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation"))
+sys.path.append(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation")
+)
 import utils
 
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -70,7 +79,7 @@ class SupervisedDataset(Dataset):
         if args.data_path == "gsm8k":
             self.dataset_for_eval = load_dataset(args.data_path, "main")["test"]
         elif args.data_path == "esnli":
-            self.dataset_for_eval = load_dataset(args.data_path)["validation"]
+            self.dataset_for_eval = load_dataset(args.data_path)["test"]
         else:
             raise NotImplementedError()
 
