@@ -29,8 +29,8 @@ fi
 
 python -u esnli_eval.py \
 --input_file $OUTPUT_DIR/eval.json \
---data_path $DATA | tee $OUTPUT_DIR/eval.log
+--data_path $DATA | tee $OUTPUT_DIR/eval_test.log
 
 python -u esnli_eval.py \
 --input_file $OUTPUT_DIR/eval.json \
---data_path $DATA --truncate 1000 | tee $OUTPUT_DIR/eval_1k.log
+--data_path $DATA --truncate 1000 | tee $OUTPUT_DIR/eval_test_1k.log
