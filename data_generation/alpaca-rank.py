@@ -188,11 +188,14 @@ def gpt_rank(responses, esnli_data_dict):
 def fetch_valid_response(data_dict):
     "fetch the human response and the valid candidates"
     human_response = utils.make_response(data_dict["data_dict"], captalize=True)
-    resp_list = [human_response]
+    resp_list = []
     for lm_resp in data_dict["responses"]:
         extracted = utils.extract_first_response(lm_resp)
         if extracted:
             resp_list.append(extracted)
+    
+    if human_response not in resp_list or len(resp_list) < 5:
+        resp_list = [human_response] + resp_list
     return resp_list
 
 
@@ -237,7 +240,7 @@ def filter_and_rank(file, func, resp_num_thres=None):
 
         if "gpt" in func.__name__:
             time.sleep(1)
-
+        
     for sample_num in sample_list:
         save_data_list(new_data_list[:sample_num], f"rank_{sample_num//1000}k.json")
 

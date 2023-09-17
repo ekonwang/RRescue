@@ -10,6 +10,7 @@ import os
 from tqdm import tqdm
 import utils
 import random
+import time
 
 ## ----- args ----- ##
 def parse_args():
@@ -37,16 +38,25 @@ def parse_args():
 
 ## ----- openai api ----- ##
 def get_gpt_response(params, messages=None, temperature=None):  # model="gpt-4-0314"
-    response = openai.ChatCompletion.create(
-        model=params.model_name,  # "gpt-4-0314"
-        messages=messages,
-        temperature=params.temperature if temperature is None else temperature,
-        max_tokens=params.max_tokens,
-        top_p=params.top_p,
-        frequency_penalty=0,
-        presence_penalty=0,
-    )
-    return response.choices[0]["message"]["content"]
+    count = 0
+    while True:
+        count += 1
+        try:
+            response = openai.ChatCompletion.create(
+                model=params.model_name,  # "gpt-4-0314"
+                messages=messages,
+                temperature=params.temperature if temperature is None else temperature,
+                max_tokens=params.max_tokens,
+                top_p=params.top_p,
+                frequency_penalty=0,
+                presence_penalty=0,
+            )
+            return response.choices[0]["message"]["content"]
+        except Exception as e:
+            print(e)
+        if count >= 3:
+            break
+    return None
 
 
 def gpt_flip_response(params, Explanation):
@@ -94,35 +104,55 @@ Response: ```{flipped_explanation} ####
 if __name__ == "__main__":
     args = parse_args()
     new_data_list = list()
+    fail_list = list()
     with open(args.input, "r") as f:
         data_list = json.load(f)
     print(f"Loaded {len(data_list)} data from {args.input}")
 
-    for i, data_dict in enumerate(tqdm(data_list)):
-        new_data_dict = data_dict.copy()
-        flip_resps = list()
-        new_data_dict.update({"response": utils.strip_response(data_dict["response"])})
+    def save_data():
+        # --- save the flipped data --- #
+        output = args.input.replace(".json", f"-flipped-{len(new_data_list) // 1000}k.json")
+        with open(output, "w") as f:
+            json.dump(new_data_list, f, indent=4)
 
+    for i, data_dict in enumerate(tqdm(data_list)):
+        new_data_dict = dict()
+        new_data_dict.update({"data_dict": data_dict["data_dict"]})
+        new_data_dict.update({"original_responses": data_dict["responses"]})
+        responses = data_dict["responses"].copy()
+        flipped_responses = list()
+        del data_dict["responses"]
+
+        fail_flag = False
         # --- flip the explanation expresstion --- #
-        explanation = utils.parse_response(data_dict["response"])["explanation"]
-        for _ in range(args.flip_beam):
-            # flipped_explanation = gpt_flip_response(args, explanation)
-            flipped_explanation = gpt_flip_response(args, data_dict["data_dict"]["explanation"])
+        for resp in responses:
+            # --- get explanation --- #
+            explanation = utils.parse_response(resp)["explanation"]
+
+            flipped_explanation = gpt_flip_response(args, explanation)
+            if flipped_explanation is None:
+                fail_flag = True
+                break
             # --- predict the label --- #
             pred_label = utils.strip_response(gpt_pred_label(args, data_dict["data_dict"], flipped_explanation))
+            if pred_label is None:
+                fail_flag = True
+                break
+            # --- make the response --- #
+            flipped_resp = utils.wrap_response(utils.make_response(dict(explanation=flipped_explanation, label=pred_label)))
             # --- save the flipped response --- #
-            flipped = utils.make_response(dict(explanation=flipped_explanation, label=pred_label))
-            flip_resps.append(flipped)
-            print(f"{flipped}")
-
-        new_data_dict.update({"flipped_responses": flip_resps})
-        del new_data_dict["messages"]
+            flipped_responses.append(flipped_resp)
+            # --- sleep --- #
+            time.sleep(0.2)
+            
+        new_data_dict.update({"responses": flipped_responses})
         new_data_list.append(new_data_dict)
-        
-        if i >= 5:
-            break
 
-    # --- save the flipped data --- #
-    output = args.input.replace(".json", "-flipped.json")
-    with open(output, "w") as f:
-        json.dump(new_data_list, f, indent=4)
+        if fail_flag:
+            fail_list.append(i)
+        if (i + 1) % 5000 == 0:
+            save_data()
+    
+    print(f"Failed {len(fail_list)} Times\ndata: {fail_list}")
+    save_data()
+
