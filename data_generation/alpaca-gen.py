@@ -109,7 +109,7 @@ class SupervisedDataset(Dataset):
         with open(args.sample_path, "r") as f:
             idxs = json.load(f)
         if args.truncate is not None:
-            idxs = idxs[args.head_truncate: args.truncate]
+            idxs = idxs[args.head_truncate : args.truncate]
 
         if self.data_path == "esnli":
             template = """\
@@ -167,7 +167,10 @@ def padding(inputs, padding_token, cutoff=None):
 
 def pad_sequence(input_list, padding_token):
     max_len = max([item.size(1) for item in input_list])
-    tokens = torch.ones(len(input_list), max_len).long().to(input_list[0].device) * padding_token
+    tokens = (
+        torch.ones(len(input_list), max_len).long().to(input_list[0].device)
+        * padding_token
+    )
     for i, item in enumerate(input_list):
         length = item.size(1)
         tokens[i, -length:] = item.squeeze()[-length:]
@@ -323,7 +326,7 @@ def main(rank, args):
                 min_length=1,
                 max_new_tokens=128,
                 num_return_sequences=1,
-                do_sample=True
+                do_sample=True,
             )
         else:
             generation_config = GenerationConfig(
@@ -475,8 +478,17 @@ if __name__ == "__main__":
     parser.add_argument("--sample_path", type=str, default=None, help="sample list")
     parser.add_argument("--seed", type=int, default=40)
     parser.add_argument("--temperature", type=float, default=0.8)
-    parser.add_argument("--out_tag", default=None, type=str, help="tag for special generations like greedy decoding")
-    parser.add_argument("--multi_forward", action="store_true", help="whether generate responses with multiple forward passes, to address CUDA error in Llama-2-7b-hf")
+    parser.add_argument(
+        "--out_tag",
+        default=None,
+        type=str,
+        help="tag for special generations like greedy decoding",
+    )
+    parser.add_argument(
+        "--multi_forward",
+        action="store_true",
+        help="whether generate responses with multiple forward passes, to address CUDA error in Llama-2-7b-hf",
+    )
     args = parser.parse_args()
 
     if torch.cuda.device_count() > 1:

@@ -3,14 +3,15 @@
 import argparse
 import json
 import multiprocessing
+import os
+import random
+import time
 
 from datasets import load_dataset
 import openai
-import os
 from tqdm import tqdm
 import utils
-import random
-import time
+
 
 ## ----- args ----- ##
 def parse_args():
@@ -63,9 +64,9 @@ def gpt_flip_response(params, Explanation):
     prompt = f"""\
 Rewrite this sentence to convey the opposite meaning: ```{Explanation}```
 """
-#     prompt = f"""\
-# Combine the context and write a sentence to express a very different meaning: ```{Explanation}```
-# """
+    #     prompt = f"""\
+    # Combine the context and write a sentence to express a very different meaning: ```{Explanation}```
+    # """
     messages = [{"role": "user", "content": prompt}]
     return get_gpt_response(params, messages)
 
@@ -111,7 +112,9 @@ if __name__ == "__main__":
 
     def save_data():
         # --- save the flipped data --- #
-        output = args.input.replace(".json", f"-flipped-{len(new_data_list) // 1000}k.json")
+        output = args.input.replace(
+            ".json", f"-flipped-{len(new_data_list) // 1000}k.json"
+        )
         with open(output, "w") as f:
             json.dump(new_data_list, f, indent=4)
 
@@ -134,17 +137,23 @@ if __name__ == "__main__":
                 fail_flag = True
                 break
             # --- predict the label --- #
-            pred_label = utils.strip_response(gpt_pred_label(args, data_dict["data_dict"], flipped_explanation))
+            pred_label = utils.strip_response(
+                gpt_pred_label(args, data_dict["data_dict"], flipped_explanation)
+            )
             if pred_label is None:
                 fail_flag = True
                 break
             # --- make the response --- #
-            flipped_resp = utils.wrap_response(utils.make_response(dict(explanation=flipped_explanation, label=pred_label)))
+            flipped_resp = utils.wrap_response(
+                utils.make_response(
+                    dict(explanation=flipped_explanation, label=pred_label)
+                )
+            )
             # --- save the flipped response --- #
             flipped_responses.append(flipped_resp)
             # --- sleep --- #
             time.sleep(0.2)
-            
+
         new_data_dict.update({"responses": flipped_responses})
         new_data_list.append(new_data_dict)
 
@@ -152,7 +161,6 @@ if __name__ == "__main__":
             fail_list.append(i)
         if (i + 1) % 5000 == 0:
             save_data()
-    
+
     print(f"Failed {len(fail_list)} Times\ndata: {fail_list}")
     save_data()
-

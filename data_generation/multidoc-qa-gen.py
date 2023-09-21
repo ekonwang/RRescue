@@ -313,34 +313,15 @@ def main(rank, args):
         sampler=sampler,
     )
 
-    if args.diverse_beam > 1:
-        # --- diverse beam search with temperature --- #
-        if args.multi_forward:
-            generation_config = GenerationConfig(
-                temperature=args.temperature,
-                min_length=1,
-                max_new_tokens=128,
-                num_return_sequences=1,
-                do_sample=True,
-            )
-        else:
-            generation_config = GenerationConfig(
-                temperature=args.temperature,
-                num_beam_groups=args.diverse_beam,
-                diversity_penalty=1.0,
-                num_beams=args.diverse_beam,
-                min_length=1,
-                max_new_tokens=128,
-                num_return_sequences=args.diverse_beam,
-            )
-    else:
-        # --- greedy decoding --- #
-        generation_config = GenerationConfig(
-            temperature=args.temperature,
-            min_length=1,
-            max_new_tokens=128,
-            num_return_sequences=1,
-        )
+    # --- greedy decoding --- #
+    generation_config = GenerationConfig(
+        temperature=args.temperature,
+        min_length=1,
+        max_new_tokens=512,
+        num_return_sequences=1,
+        # penalty_alpha=1,
+        repetition_penalty=1.5,
+    )
 
     all_outputs = []
     for step, batch in enumerate(tqdm(dataloader)):
@@ -415,6 +396,8 @@ def main(rank, args):
         num = (gathered_ids != -1).sum()
         id_list = gathered_ids.tolist()
 
+        print("input size", gathered_inputs.size())
+        print("output_size", gather_outputs.size())
         for it in range(num):
             idx = id_list[it]
             if args.data_path == "esnli":
@@ -432,10 +415,11 @@ def main(rank, args):
                 dict(
                     data_dict=data_dict,
                     responses=responses,
+                    inputs=inputs_string[it],
                 )
             )
 
-        if rank == 0 and (step + 1 == len(dataloader) or (step + 1) % 1000 == 0):
+        if rank == 0 and (step + 1 == len(dataloader) or (step + 1) % 10 == 0):
             dataset_name = data_path.split("/")[-1]
             model_name = base_model.split("/")[-1]
             output_path = (
@@ -498,5 +482,5 @@ if __name__ == "__main__":
         local_rank = int(os.environ["LOCAL_RANK"])
     else:
         local_rank = 0
-    # CUDA_VISIBLE_DEVICES=7 torchrun --nproc_per_node=1 --master_port 7881 multidoc-qa-gen.py --base_model NousResearch/Llama-2-7b-hf --diverse_beam 1 --data_file_path ./output/multidoc-qa/one-doc-raw.json
+    # CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 --master_port 7881 multidoc-qa-gen.py --base_model NousResearch/Llama-2-7b-hf --diverse_beam 1 --data_file_path ./output/multidoc-qa/one-doc-raw.json --model_max_length 1024
     main(local_rank, args)

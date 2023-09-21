@@ -8,7 +8,9 @@ from typing import Dict
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation"))
+sys.path.append(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_generation")
+)
 import utils
 
 UNK = "<unk>"
@@ -18,7 +20,9 @@ esnli_label_id_dict = {"entailment": 0, "neutral": 1, "contradiction": 2, UNK: 3
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", type=str, default=None)
-    parser.add_argument("--data_path", type=str, default="esnli", choices=["esnli"], help="dataset")
+    parser.add_argument(
+        "--data_path", type=str, default="esnli", choices=["esnli"], help="dataset"
+    )
     parser.add_argument("--e_first", type=int, default=1)
     parser.add_argument("--truncate", type=int, default=None)
     return parser.parse_args()
