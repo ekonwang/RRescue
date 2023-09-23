@@ -27,9 +27,9 @@ def label_rank(responses, multidoc_qa_data_dict):
     return scores
 
 
-def filter_and_rank(file, func, resp_num_thres=None):
+def filter_and_rank(file, func, resp_num_thres=None, add_label=False):
     log_dict = {s: 0 for s in range(0, 10)}
-    sample_list = [1000]
+    sample_list = [1000, 2000]
     mean_scores = list()
     all_one = 0
     all_two = 0
@@ -53,6 +53,16 @@ def filter_and_rank(file, func, resp_num_thres=None):
         new_data_dict["data_dict"] = data_dict["data_dict"].copy()
         new_data_dict["scores"] = scores
         new_data_dict["responses"] = responses
+
+        if add_label:
+            new_responses = list()
+            for resp, score in zip(responses, scores):
+                if score > 1.0:
+                    new_resp = f"{resp} #### Correct"
+                else:
+                    new_resp = f"{resp} #### Incorrect"
+                new_responses.append(new_resp)
+            new_data_dict["responses"] = new_responses
 
         if step % 1000 == 0:
             save_data_list(new_data_list, "rank_all.json")
@@ -89,4 +99,4 @@ if __name__ == "__main__":
     ]  # "/workspace/RRescue/data_generation/output/mix/raw-mixed-39k.json"
     for func in [label_rank]:
         # for func in [gpt_rank]:
-        filter_and_rank(file, func, 5)
+        filter_and_rank(file, func, 5, add_label=True)
