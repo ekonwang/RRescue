@@ -18,16 +18,24 @@ prompt_file=./data_generation/configs/$prompt_template
 wandb offline
 mkdir -p ./logs
 
+# ------------- useful work arounds -------------- #
+
+# if environmental variable RRESCUE_SEED is not set, set it to 42
+if [ -z ${RRESCUE_SEED+x} ]; then
+    export RRESCUE_SEED=42
+fi
+
+# if environmental variable RRHF_WEIGHT is not set, set it to 0.1
 if [ -z ${RRHF_WEIGHT+x} ]; then
-    weight=0.1
-else
-    weight=$RRHF_WEIGHT
+    export RRHF_WEIGHT=0.1
 fi
 
 # if environmental variable GLOBAL_BATCH_SIZE is not set, set it to 8
 if [ -z ${GLOBAL_BATCH_SIZE+x} ]; then
     export GLOBAL_BATCH_SIZE=8
 fi
+
+# ------------------------------------------------ #
 IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 NPROC=${#DEVICES[@]}
 gradient_accumulation_steps=$(( (GLOBAL_BATCH_SIZE + NPROC - 1) / NPROC ))
@@ -56,4 +64,4 @@ python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port $
     --fsdp "full_shard auto_wrap" \
     --fsdp_transformer_layer_cls_to_wrap 'LlamaDecoderLayer' \
     --model_max_length 512 \
-    --rrhf_weight ${weight} --train_strategy $strategy | tee ./logs/test.log
+    --rrhf_weight $RRHF_WEIGHT --train_strategy $strategy --seed ${RRESCUE_SEED} | tee ./logs/test.log
