@@ -156,15 +156,13 @@ def main():
         tag = "human_response"
     else:
         tag = os.path.basename(args.input_data).rsplit(".", 1)[0]
-    # plot frequency distribution of tokens length
-    sns.histplot(value_list, bins=100, kde=True)
-    if args.length_penalty != 1.0:
-        plt.title(
-            f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f} length_penalty = {args.length_penalty:.2f}"
-        )
-    else:
-        plt.title(f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f}")
-    plt.savefig(os.path.join(args.output_dir, f"log_prob_scores_{tag}.png"), dpi=300)
+
+    file = os.path.join(
+        args.output_dir,
+        f"log_prob_scores_{tag}_length_penalty_{args.length_penalty:.2f}.json",
+    )
+    with open(file, "w") as f:
+        json.dump(value_list, f, indent=2)
 
 
 if __name__ == "__main__":
