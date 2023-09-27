@@ -14,6 +14,7 @@ import seaborn as sns
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+from tqdm import tqdm
 import transformers
 from transformers import Trainer
 
@@ -68,7 +69,7 @@ def main():
         all_data_list = json.load(f)[: args.sample_size]
     tokens_list = list()
 
-    for data_dict in all_data_list:
+    for data_dict in tqdm(all_data_list):
         if args.human_response:
             human_response = utils.make_response(data_dict["data_dict"], captalize=True)
             resps = [utils.wrap_response(human_response)]
@@ -92,7 +93,9 @@ def main():
                 tokenizer,
             )
             tokens_list.append(res_input_ids.shape[0])
-            print(resp, res_input_ids.shape[0])
+            # print(resp, res_input_ids.shape[0])
+        if len(tokens_list) >= args.sample_size:
+            break
 
     # --- data analysis --- #
     length_mean = np.array(tokens_list).mean()
@@ -102,12 +105,9 @@ def main():
         tag = "human_response"
     else:
         tag = os.path.basename(args.input_data).rsplit(".", 1)[0]
-    # plot frequency distribution of tokens length
-    sns.histplot(tokens_list, bins=100, kde=True)
-    plt.title(f"{tag}\nmean = {length_mean:.2f} std = {length_std:.2f}")
-    plt.savefig(
-        os.path.join(args.output_dir, f"tokens_length_distribution_{tag}.png"), dpi=300
-    )
+    file = os.path.join(args.output_dir, f"tokens_length_distribution_{tag}.json")
+    with open(file, "w") as f:
+        json.dump(tokens_list, f, indent=2)
 
 
 if __name__ == "__main__":
