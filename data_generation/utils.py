@@ -1,6 +1,9 @@
 import random
 import re
+import string
+from typing import List
 
+import regex
 import torch
 
 # ----- data process ----- #
@@ -90,6 +93,61 @@ def process_esnli(data_dict, index):
         explanation=data_dict["explanation_1"],
         index=index,
     )
+
+
+# ----- multi-document QA ----- #
+def normalize_answer(s: str) -> str:
+    """Normalization from the SQuAD evaluation script.
+
+    See https://worksheets.codalab.org/rest/bundles/0x6b567e1cf2e041ec80d7098f031c5c9e/contents/blob/
+    """
+
+    def remove_articles(text):
+        return regex.sub(r"\b(a|an|the)\b", " ", text)
+
+    def white_space_fix(text):
+        return " ".join(text.split())
+
+    def remove_punc(text):
+        exclude = set(string.punctuation)
+        return "".join(ch for ch in text if ch not in exclude)
+
+    def lower(text):
+        return text.lower()
+
+    return white_space_fix(remove_articles(remove_punc(lower(s))))
+
+
+def multidoc_qa_eval(prediction: str, ground_truths: List[str]) -> float:
+    """
+    Code reference from:
+    Lost in the Middle: How Language Models Use Long Contexts
+    """
+    normalized_prediction = normalize_answer(prediction)
+
+    for ground_truth in ground_truths:
+        normalized_ground_truth = normalize_answer(ground_truth)
+        if normalized_ground_truth.lower() in normalized_prediction.lower():
+            return 1.0
+    return 0.0
+
+
+def make_qa_prompt(ctxs, question, use_gold=False):
+    prompt = f"""\
+Write a high-quality answer for the given question using only the provided search results (some of which might be irrelevant).
+
+"""
+    for index, ctx in enumerate(ctxs):
+        if use_gold == False or (use_gold == True and ctx["isgold"] == True):
+            prompt += f"""\
+Document [{index+1}](Title: {ctx['title']}) {ctx['text']}
+
+"""
+    prompt += f"""\
+Question: {question}
+    
+Answer: """
+    return prompt
 
 
 # ----- misc ----- #

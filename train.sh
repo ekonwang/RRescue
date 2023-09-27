@@ -11,13 +11,18 @@ use_eos_token=0 # 1 / 0
 
 prompt_template=esnli_prompt.json
 dataset=esnli
-weight=0.1
 MODEL_PATH=$MODEL_FOR_TRAIN # chainyo/alpaca-lora-7b / NousResearch/Llama-2-7b-hf
 MASTER_ADDR="localhost"
 MASTER_PORT=$((RANDOM % 1000 + 10000))
 prompt_file=./data_generation/configs/$prompt_template
 wandb offline
 mkdir -p ./logs
+
+if [ -z ${RRHF_WEIGHT+x} ]; then
+    weight=0.1
+else
+    weight=$RRHF_WEIGHT
+fi
 
 # if environmental variable GLOBAL_BATCH_SIZE is not set, set it to 8
 if [ -z ${GLOBAL_BATCH_SIZE+x} ]; then
