@@ -161,6 +161,7 @@ def main():
         args.output_dir,
         f"log_prob_scores_{tag}_length_penalty_{args.length_penalty:.2f}.json",
     )
+    os.makedirs(os.path.dirname(file), exist_ok=True)
     with open(file, "w") as f:
         json.dump(value_list, f, indent=2)
 

@@ -33,10 +33,16 @@ def esnli(output_dict: Dict, opt):
     query = copy.deepcopy(output_dict["query"])
     str_label = output_dict["label"]
     answer = answer.replace(query, "")
-    extracted_resp = utils.extract_first_response(answer)
+    extracted_resp = answer
     if extracted_resp is None:
         return str_label, UNK
-    str_pred = utils.safe_parse_response(extracted_resp)["label"]
+
+    str_pred = UNK
+    for label in esnli_label_id_dict.keys():
+        if label.lower() in extracted_resp.lower():
+            str_pred = label
+            break
+
     return str_label, str_pred
 
 
