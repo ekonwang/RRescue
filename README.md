@@ -1,6 +1,6 @@
-# RRescue: Ranking LLM Responses to Enhance Contextual Understanding
+# Rescue: Ranking LLM Responses with Partial Ordering to Improve Response Generation
 
-![](https://img.shields.io/static/v1?label=&message=UNDER-Dev&color=orange&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=LLM&color=red&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=For-ICLR-2024&color=black&style=for-the-badge)
+![](https://img.shields.io/static/v1?label=&message=Rescue&color=orange&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=LLM&color=red&style=for-the-badge)![](https://img.shields.io/static/v1?label=&message=ACL-SRW-2024&color=black&style=for-the-badge)
 
 Effectively using a given context is paramount for large language models (LLMs). Their context window can include task specifications, retrieved documents, previous conversations, and model self-reflections, functioning similarly to episodic memory. While there have been efforts to expand this context window, studies indicate that LLMs do not use their context optimally for response generation. 
 
@@ -46,8 +46,3 @@ export MODEL_FOR_TRAIN=<target_model>
 bash train.sh <output_path> <data_path> <num_response>
 bash esnli_eval.sh <output_path> <num_eval_samples>
 ```
-
-## resources
-
-- [[overleaf link]](https://www.overleaf.com/project/64ca9b8ac33902595d5adc01)
-- [[google doc link]](https://docs.google.com/document/d/1eanF7cs4QSEUCIwU1uDmrvI2nGzhdCUzq1EmDR19oWM/edit)
